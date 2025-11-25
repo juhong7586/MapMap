@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polygon Detection App</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 Polygon Detection App</h1>
+            <p>Capture a photo using your camera or upload an image to detect polygons</p>
+        </div>
+        
+        <div class="content">
+            <div class="section">
+                <h2>Input Method</h2>
+
+                <div class="tab-buttons">
+                    <button class="tab-btn active" onclick="switchTab('camera')">📷 Camera</button>
+                    <button class="tab-btn" onclick="switchTab('upload')">📁 Upload</button>
+                </div>
+
+                <!-- Camera Tab -->
+                <div id="camera-tab" class="tab-content active">
+                    <div class="camera-container">
+                        <video id="video" playsinline></video>
+                        <div class="frame-guide" id="frameGuide"></div>
+                    </div>
+
+                    <div class="controls">
+                        <button class="btn-primary" id="startCameraBtn">Start Camera</button>
+                        <button class="btn-secondary" id="captureBtn" disabled>Take Photo</button>
+                        <button class="btn-danger" id="stopCameraBtn" disabled>Stop Camera</button>
+                    </div>
+
+                    <div id="cameraStatus" class="status"></div>
+
+                    <div class="info-box">
+                        <h3>📋 Instructions</h3>
+                        <small>
+                            1. Click "Start Camera"<br>
+                            2. Position the <strong>black square</strong> to fill ~80% of the frame<br>
+                            3. The border will turn <span style="color: #48bb78;">green</span> when ready<br>
+                            4. Click "Take Photo" to capture
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Upload Tab -->
+                <div id="upload-tab" class="tab-content">
+                    <div class="upload-area" id="uploadArea">
+                        <div style="font-size: 40px; margin-bottom: 10px;">📸</div>
+                        <p style="color: #666; margin-bottom: 10px;">Drag and drop your image here</p>
+                        <p style="color: #999; font-size: 14px;">or click to select</p>
+                    </div>
+
+                    <input type="file" id="fileInput" accept="image/*">
+
+                    <button class="btn-primary" onclick="document.getElementById('fileInput').click()">Choose File</button>
+
+                    <div id="uploadStatus"></div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>Detected Polygons</h2>
+                
+                <canvas id="canvas"></canvas>
+
+                <div id="polygonList" class="polygon-list"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const startCameraBtn = document.getElementById('startCameraBtn');
+        const captureBtn = document.getElementById('captureBtn');
+        const stopCameraBtn = document.getElementById('stopCameraBtn');
+        const video = document.getElementById('video');
+        const cameraStatus = document.getElementById('cameraStatus');
+        const frameGuide = document.getElementById('frameGuide');
+        
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadStatus = document.getElementById('uploadStatus');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const polygonList = document.getElementById('polygonList');
+        // Use the page origin to avoid CORS hostname mismatches
+        const API_URL = window.location.origin;
+        
+        let stream = null;
+        let currentImage = null;
+        let currentPolygons = [];
+        let detectionInterval = null;
+        let isBlackSquareDetected = false;
+        
+        // Tab switching
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tab + '-tab').classList.add('active');
+            event.target.classList.add('active');
+            
+            if (tab === 'upload' && stream) {
+                stopCamera();
+            }
+        }
+
+        // Camera functions
+        startCameraBtn && startCameraBtn.addEventListener('click', startCamera);
+        stopCameraBtn && stopCameraBtn.addEventListener('click', stopCamera);
+        captureBtn && captureBtn.addEventListener('click', capturePhoto);
+
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user' }
+                });
+                video.srcObject = stream;
+                video.play();
+                
+                startCameraBtn.disabled = true;
+                stopCameraBtn.disabled = false;
+                cameraStatus.className = 'status success';
+                cameraStatus.textContent = '✓ Camera started';
+                
+                // Set up frame guide size (80% of video)
+                updateFrameGuide();
+                
+                // Start detection loop
+                detectionInterval = setInterval(detectBlackSquare, 100);
+                
+            } catch (err) {
+                cameraStatus.className = 'status error';
+                cameraStatus.textContent = '✗ Camera access denied';
+                console.error('Error:', err);
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+            
+            if (detectionInterval) {
+                clearInterval(detectionInterval);
+            }
+            
+            startCameraBtn.disabled = false;
+            stopCameraBtn.disabled = true;
+            captureBtn.disabled = true;
+            isBlackSquareDetected = false;
+            frameGuide.classList.remove('valid');
+            cameraStatus.className = 'status';
+            cameraStatus.textContent = '';
+        }
+
+        function updateFrameGuide() {
+            const container = document.querySelector('.camera-container');
+            const guideSize = container.offsetWidth * 0.8; // 80% of frame
+            frameGuide.style.width = guideSize + 'px';
+            frameGuide.style.height = guideSize + 'px';
+        }
+
+        function detectBlackSquare() {
+            if (!video.readyState === video.HAVE_ENOUGH_DATA) return;
+            
+            const canvas_temp = document.createElement('canvas');
+            canvas_temp.width = video.videoWidth;
+            canvas_temp.height = video.videoHeight;
+            const ctx_temp = canvas_temp.getContext('2d');
+            ctx_temp.drawImage(video, 0, 0);
+            
+            const imageData = ctx_temp.getImageData(0, 0, canvas_temp.width, canvas_temp.height);
+            const data = imageData.data;
+            
+            let blackPixels = 0;
+            const threshold = 50; // Pixels with RGB values below this are considered black
+            
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                
+                if (r < threshold && g < threshold && b < threshold) {
+                    blackPixels++;
+                }
+            }
+            
+            const totalPixels = canvas_temp.width * canvas_temp.height;
+            const blackPercentage = (blackPixels / totalPixels) * 100;
+            
+            // Check if black area is between 60-85% (allowing some tolerance)
+            isBlackSquareDetected = blackPercentage > 55 && blackPercentage < 85;
+            
+            if (isBlackSquareDetected) {
+                frameGuide.classList.add('valid');
+                captureBtn.disabled = false;
+                cameraStatus.className = 'status success';
+                cameraStatus.textContent = `✓ Ready! Black area: ${Math.round(blackPercentage)}%`;
+            } else {
+                frameGuide.classList.remove('valid');
+                captureBtn.disabled = true;
+                cameraStatus.className = 'status warning';
+                cameraStatus.textContent = `Black area: ${Math.round(blackPercentage)}% - Need ~80%`;
+            }
+        }
+
+        function capturePhoto() {
+            if (!isBlackSquareDetected) {
+                cameraStatus.className = 'status error';
+                cameraStatus.textContent = '✗ Black square not properly detected';
+                return;
+            }
+            
+            const captureCanvas = document.createElement('canvas');
+            captureCanvas.width = video.videoWidth;
+            captureCanvas.height = video.videoHeight;
+            const captureCtx = captureCanvas.getContext('2d');
+            captureCtx.drawImage(video, 0, 0);
+            
+            currentImage = captureCanvas.toDataURL('image/jpeg');
+            
+            cameraStatus.className = 'status success';
+            cameraStatus.textContent = '✓ Photo captured! Processing...';
+            
+            uploadImageToBackend(currentImage);
+        }
+
+        // File upload
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+        
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                currentImage = e.target.result;
+                uploadImageToBackend(currentImage);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function uploadImageToBackend(base64Image) {
+            uploadStatus.className = 'status loading';
+            uploadStatus.textContent = '⏳ Processing image...';
+            polygonList.innerHTML = '';
+            canvas.style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_URL}/upload-base64`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        image: base64Image
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentPolygons = data.polygons;
+                    uploadStatus.className = 'status success';
+                    uploadStatus.textContent = `✓ ${data.message}`;
+                    cameraStatus.textContent = `✓ ${data.message}`;
+                    drawPolygons();
+                    displayPolygonList();
+                } else {
+                    uploadStatus.className = 'status error';
+                    uploadStatus.textContent = `✗ Error: ${data.error}`;
+                    cameraStatus.className = 'status error';
+                    cameraStatus.textContent = `✗ Error: ${data.error}`;
+                }
+            } catch (error) {
+                uploadStatus.className = 'status error';
+                uploadStatus.textContent = `✗ Connection error. Is the backend running on port 5000?`;
+                cameraStatus.className = 'status error';
+                cameraStatus.textContent = `✗ Connection error`;
+                console.error('Error:', error);
+            }
+        }
+        
+        function drawPolygons() {
+            if (!currentImage) return;
+            
+            const img = new Image();
+            img.onload = () => {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                
+                currentPolygons.forEach((polygon, index) => {
+                    const hue = (index * 360 / currentPolygons.length) % 360;
+                    const color = `hsl(${hue}, 100%, 50%)`;
+                    
+                    ctx.strokeStyle = color;
+                    ctx.fillStyle = color;
+                    ctx.lineWidth = 3;
+                    ctx.globalAlpha = 0.3;
+                    
+                    ctx.beginPath();
+                    polygon.points.forEach((point, i) => {
+                        if (i === 0) ctx.moveTo(point[0], point[1]);
+                        else ctx.lineTo(point[0], point[1]);
+                    });
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    ctx.globalAlpha = 1;
+                    ctx.stroke();
+                });
+                
+                canvas.style.display = 'block';
+            };
+            img.src = currentImage;
+        }
+        
+        function displayPolygonList() {
+            polygonList.innerHTML = '';
+            
+            currentPolygons.forEach((polygon, index) => {
+                const div = document.createElement('div');
+                div.className = 'polygon-item';
+                div.innerHTML = `
+                    <strong>Polygon ${index + 1}</strong>
+                    <small>Vertices: ${polygon.vertices} | Area: ${Math.round(polygon.area)} px²</small>
+                `;
+                polygonList.appendChild(div);
+            });
+        }
+        
+        window.addEventListener('resize', updateFrameGuide);
+    </script>
+</body>
+</html>

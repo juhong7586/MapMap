@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polygon Detection App</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 Polygon Detection App</h1>
+            <p>Upload a photo of your object map to automatically detect polygons</p>
+        </div>
+        
+        <div class="content">
+            <div class="section">
+                <h2>Upload Image</h2>
+                
+                <div class="upload-area" id="uploadArea">
+                    <div style="font-size: 40px; margin-bottom: 10px;">📸</div>
+                    <p style="color: #666; margin-bottom: 10px;">Drag and drop your image here</p>
+                    <p style="color: #999; font-size: 14px;">or click to select</p>
+                </div>
+                
+                <input type="file" id="fileInput" accept="image/*">
+                
+                <button class="btn-primary" onclick="document.getElementById('fileInput').click()">Choose File</button>
+                
+                <div id="status"></div>
+                
+                <div class="info-box">
+                    <h3>💡 Tips</h3>
+                    <small>
+                        • Use clear, high-contrast images<br>
+                        • Good lighting helps detection<br>
+                        • Supported: JPG, PNG, GIF
+                    </small>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>Detected Polygons</h2>
+                
+                <canvas id="canvas" width="500" height="500"></canvas>
+                
+                <div id="polygonList" class="polygon-list"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const statusDiv = document.getElementById('status');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const polygonList = document.getElementById('polygonList');
+        
+        // Use the same origin the page was served from to avoid CORS hostname mismatches
+        const API_URL = window.location.origin;
+        
+        let currentImage = null;
+        let currentPolygons = [];
+        
+        // Upload area drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+        
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                currentImage = e.target.result;
+                uploadToBackend(file);
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        async function uploadToBackend(file) {
+            statusDiv.className = 'status loading';
+            statusDiv.textContent = '⏳ Processing image...';
+            polygonList.innerHTML = '';
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch(`${API_URL}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentPolygons = data.polygons;
+                    statusDiv.className = 'status success';
+                    statusDiv.textContent = `✓ ${data.message}`;
+                    drawPolygons();
+                    displayPolygonList();
+                } else {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = `✗ Error: ${data.error}`;
+                }
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = `✗ Connection error. Is the backend running on port 5000?`;
+                console.error('Error:', error);
+            }
+        }
+        
+        function drawPolygons() {
+            if (!currentImage) return;
+            
+            const img = new Image();
+            img.onload = () => {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                
+                // Draw polygons
+                currentPolygons.forEach((polygon, index) => {
+                    const hue = (index * 360 / currentPolygons.length) % 360;
+                    const color = `hsl(${hue}, 100%, 50%)`;
+                    
+                    ctx.strokeStyle = color;
+                    ctx.fillStyle = color;
+                    ctx.lineWidth = 3;
+                    ctx.globalAlpha = 0.3;
+                    
+                    ctx.beginPath();
+                    polygon.points.forEach((point, i) => {
+                        if (i === 0) ctx.moveTo(point[0], point[1]);
+                        else ctx.lineTo(point[0], point[1]);
+                    });
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    ctx.globalAlpha = 1;
+                    ctx.stroke();
+                });
+            };
+            img.src = currentImage;
+        }
+        
+        function displayPolygonList() {
+            polygonList.innerHTML = '';
+            
+            currentPolygons.forEach((polygon, index) => {
+                const div = document.createElement('div');
+                div.className = 'polygon-item';
+                div.innerHTML = `
+                    <strong>Polygon ${index + 1}</strong>
+                    <small>Vertices: ${polygon.vertices} | Area: ${Math.round(polygon.area)} px²</small>
+                `;
+                polygonList.appendChild(div);
+            });
+        }
+    </script>
+</body>
+</html>

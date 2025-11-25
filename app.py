@@ -142,9 +142,7 @@ def health():
 
 @app.route('/', methods=['GET'])
 def serve_index():
-    """Serve the frontend `index.html` located next to `app.py`."""
     try:
-        # Serve index.html from the application directory
         return send_from_directory('.', 'index.html')
     except Exception:
         return jsonify({"error": "index.html not found"}), 404

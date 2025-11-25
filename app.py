@@ -7,6 +7,8 @@ from io import BytesIO
 from PIL import Image
 
 app = Flask(__name__)
+# Development: make CORS permissive to avoid origin issues while testing locally.
+# NOTE: This should be restricted or removed in production.
 CORS(app)
 
 def detect_polygons(image_path):
@@ -143,14 +145,26 @@ def health():
 @app.route('/', methods=['GET'])
 def serve_index():
     try:
-        return send_from_directory('.', 'index.html')
+        # Serve the intro page at the root by default
+        return send_from_directory('.', 'intro.html')
     except Exception:
         return jsonify({"error": "index.html not found"}), 404
 
 
 @app.route('/index.html', methods=['GET'])
 def serve_index_html():
-    return serve_index()
+    try:
+        return send_from_directory('.', 'index.html')
+    except Exception:
+        return jsonify({"error": "index.html not found"}), 404
+
+
+@app.route('/intro', methods=['GET'])
+def serve_intro():
+    try:
+        return send_from_directory('.', 'intro.html')
+    except Exception:
+        return jsonify({"error": "intro.html not found"}), 404
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

@@ -7,6 +7,15 @@
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
+    <div id="introOverlay" class="intro-overlay">
+        <div class="intro-box">
+            <h1>Polygon Detection App</h1>
+            <input id="usernameInput" class="intro-input" type="text" placeholder="Enter your name" autocomplete="name">
+            <div>
+                <button id="startBtn" class="start-btn">Start</button>
+            </div>
+        </div>
+    </div>
     <div class="container">
         <div class="header">
             <h1>🎨 Polygon Detection App</h1>
@@ -356,6 +365,38 @@
         }
         
         window.addEventListener('resize', updateFrameGuide);
+
+        // Intro overlay handling
+        const introOverlay = document.getElementById('introOverlay');
+        const usernameInput = document.getElementById('usernameInput');
+        const startBtn = document.getElementById('startBtn');
+
+        function closeIntro(username) {
+            if (username) {
+                window.APP_USERNAME = username;
+                try { localStorage.setItem('mapmap_username', username); } catch (e) {}
+            }
+            introOverlay.style.display = 'none';
+        }
+
+        // Pre-fill from localStorage if available
+        try {
+            const saved = localStorage.getItem('mapmap_username');
+            if (saved) usernameInput.value = saved;
+        } catch (e) {}
+
+        startBtn.addEventListener('click', () => {
+            const name = usernameInput.value && usernameInput.value.trim();
+            if (!name) {
+                usernameInput.focus();
+                return;
+            }
+            closeIntro(name);
+        });
+
+        usernameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') startBtn.click();
+        });
     </script>
 </body>
 </html>

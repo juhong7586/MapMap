@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Welcome — Polygon Detection App</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <style>
+    /* Minimal local styles in case static CSS is missing */
+    .intro-page { display:flex; align-items:center; justify-content:center; height:100vh; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); }
+    .intro-box { background:white; padding:28px; border-radius:12px; width:360px; max-width:90%; text-align:center; box-shadow:0 12px 40px rgba(0,0,0,0.25); }
+    .intro-box h1 { margin-bottom:14px; }
+    .intro-input { width:100%; padding:10px 12px; border-radius:8px; border:1px solid #e2e8f0; margin-bottom:12px; font-size:16px; }
+    .start-btn { padding:10px 16px; background:#667eea; color:white; border-radius:8px; border:none; cursor:pointer; font-weight:600; }
+    .start-btn:disabled { background:#cbd5e0; cursor:not-allowed; }
+  </style>
+</head>
+<body>
+  <main class="intro-page">
+    <div class="intro-box">
+      <h1>Polygon Detection</h1>
+      <input id="username" class="intro-input" placeholder="Enter your name" autocomplete="name">
+      <div>
+        <button id="start" class="start-btn">Start</button>
+      </div>
+    </div>
+  </main>
+  <script>
+    const input = document.getElementById('username');
+    const start = document.getElementById('start');
+    // Prefill from localStorage
+    try {
+      const saved = localStorage.getItem('mapmap_username');
+      if (saved) input.value = saved;
+    } catch (e) {}
+
+    function go() {
+      const name = input.value && input.value.trim();
+      if (!name) { input.focus(); return; }
+      try { localStorage.setItem('mapmap_username', name); } catch (e) {}
+      // navigate to main app index
+      window.location.href = '/';
+    }
+
+    start.addEventListener('click', go);
+    input.addEventListener('keydown', (e)=>{ if (e.key==='Enter') go(); });
+  </script>
+</body>
+</html>

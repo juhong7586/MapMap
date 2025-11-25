@@ -142,6 +142,14 @@ def health():
     return jsonify({"status": "Backend is running"}), 200
 
 
+
+@app.route('/match', methods=['GET'])
+def serve_match():
+    try:
+        return send_from_directory('.', 'match.html')
+    except Exception:
+        return jsonify({"error": "match.html not found"}), 404
+
 @app.route('/', methods=['GET'])
 def serve_index():
     try:
@@ -151,20 +159,13 @@ def serve_index():
         return jsonify({"error": "index.html not found"}), 404
 
 
-@app.route('/index.html', methods=['GET'])
-def serve_index_html():
+@app.route('/map.html', methods=['GET'])
+def serve_map_html():
     try:
-        return send_from_directory('.', 'index.html')
+        return send_from_directory('.', 'map.html')
     except Exception:
-        return jsonify({"error": "index.html not found"}), 404
+        return jsonify({"error": "map.html not found"}), 404
 
-
-@app.route('/intro', methods=['GET'])
-def serve_intro():
-    try:
-        return send_from_directory('.', 'intro.html')
-    except Exception:
-        return jsonify({"error": "intro.html not found"}), 404
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

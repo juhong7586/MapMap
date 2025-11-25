@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polygon Detection App</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div id="introOverlay" class="intro-overlay">
+        <div class="intro-box">
+            <h1>Polygon Detection App</h1>           
+        </div>
+    </div>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 Polygon Detection App</h1>
+            <div id="userGreeting" class="user-greeting" aria-live="polite"></div>
+            <p>Capture a photo using your camera or upload an image to detect polygons</p>
+        </div>
+        
+        <div class="content">
+            <div class="section">
+                <h2>Input Method</h2>
+
+                <div class="tab-buttons">
+                    <button class="tab-btn active" onclick="switchTab('camera')">📷 Camera</button>
+                    <button class="tab-btn" onclick="switchTab('upload')">📁 Upload</button>
+                </div>
+
+                <!-- Camera Tab -->
+                <div id="camera-tab" class="tab-content active">
+                    <div class="camera-container">
+                        <video id="video" playsinline></video>
+                        <div class="frame-guide" id="frameGuide"></div>
+                    </div>
+
+                    <div class="controls">
+                        <button class="btn-primary" id="startCameraBtn">Start Camera</button>
+                        <button class="btn-secondary" id="captureBtn" disabled>Take Photo</button>
+                        <button class="btn-danger" id="stopCameraBtn" disabled>Stop Camera</button>
+                    </div>
+
+                    <div id="cameraStatus" class="status"></div>
+
+                    <div class="info-box">
+                        <h3>📋 Instructions</h3>
+                        <small>
+                            1. Click "Start Camera"<br>
+                            2. Position the <strong>black square</strong> to fill ~80% of the frame<br>
+                            3. The border will turn <span style="color: #48bb78;">green</span> when ready<br>
+                            4. Click "Take Photo" to capture
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Upload Tab -->
+                <div id="upload-tab" class="tab-content">
+                    <div class="upload-area" id="uploadArea">
+                        <div style="font-size: 40px; margin-bottom: 10px;">📸</div>
+                        <p style="color: #666; margin-bottom: 10px;">Drag and drop your image here</p>
+                        <p style="color: #999; font-size: 14px;">or click to select</p>
+                    </div>
+
+                    <input type="file" id="fileInput" accept="image/*">
+
+                    <button class="btn-primary" onclick="document.getElementById('fileInput').click()">Choose File</button>
+
+                    <div id="uploadStatus"></div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>Detected Polygons</h2>
+                
+                <canvas id="canvas"></canvas>
+
+                <div id="polygonList" class="polygon-list"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/map.js"></script>
+</body>
+</html>

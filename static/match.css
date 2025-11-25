@@ -1,0 +1,130 @@
+/* match.css — styles extracted from match.html */
+body { 
+    background: linear-gradient(135deg,#eef2ff 0%, #f7f7fb 100%); 
+}
+
+.match-container {
+    max-width: 1100px;
+    margin: 24px auto;
+    padding: 18px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    position: relative;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.match-area {
+    display: flex;
+    gap: 80px;
+    align-items: center;
+    text-align: center;
+    position: relative;
+}
+
+.col {
+    flex: 1;
+    min-width: 260px;
+}
+
+.col .item {
+    background: #2b6cb0;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    /* ensure items sit above the canvas */
+    position: relative;
+    z-index: 2;
+    color: #ffffff;
+    border-radius: 10px;
+    padding: 0.5rem;
+    margin: 14px 0;
+    text-align: center;
+    cursor: pointer;
+    user-select: none;
+    width: 11rem;
+    height:6rem;
+}
+
+.col.right .item {
+    background: #1a202c;
+}
+
+.item.selected {
+    outline: 4px solid #f6ad55;
+}
+
+.controls {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 18px;
+}
+
+.btn {
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.btn.clear {
+    background: #e53e3e;
+    color: #ffffff;
+}
+
+.btn.check {
+    background: #2b6cb0;
+    color: #ffffff;
+}
+
+.btn.map {
+    background: #38a169;
+    color: #ffffff;
+}
+
+canvas.lines {
+    position: absolute;
+    left: 0;
+    top: 0;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* thumbnails for right column images */
+.thumb {
+    max-width: 220px;
+    max-height: 5rem;
+    object-fit: contain;
+    display: block;
+    margin: auto;
+}
+
+.info {
+    margin-top: 10px;
+    color: #334155;
+}
+
+/* Try Again overlay */
+.overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 9999;
+}
+
+.modal {
+    background: #ffffff;
+    padding: 20px 28px;
+    border-radius: 10px;
+    text-align: center;
+    width: 320px;
+}

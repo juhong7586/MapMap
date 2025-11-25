@@ -38,8 +38,8 @@
       const name = input.value && input.value.trim();
       if (!name) { input.focus(); return; }
       try { localStorage.setItem('mapmap_username', name); } catch (e) {}
-      // navigate to main app index
-      window.location.href = '/';
+      // navigate to the matching activity first
+      window.location.href = '/match';
     }
 
     start.addEventListener('click', go);

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Match Words — Polygon Detection App</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/match.css">
+</head>
+<body>
+  <main class="match-container">
+    <h1>Match Words to Learn</h1>
+    <div class="match-area" id="matchArea">
+      <div class="col left" id="leftCol"></div>
+      <div class="col right" id="rightCol"></div>
+      <canvas id="linesCanvas" class="lines"></canvas>
+    </div>
+
+    <div class="controls">
+      <button class="btn clear" id="clearBtn">Clear</button>
+      <button class="btn check" id="checkBtn">Check</button>
+      <button class="btn map" id="mapBtn">Go to Map</button>
+    </div>
+
+    <div class="info">Click a left item, then its match on the right. Click again to deselect.</div>
+  </main>
+
+  <div id="tryOverlay" style="display:none" class="overlay" role="dialog">
+    <div class="modal">
+      <h3>Try again!</h3>
+      <p id="scoreText"></p>
+      <div style="margin-top:14px"><button class="btn check" id="tryOk">OK</button></div>
+    </div>
+  </div>
+
+  <script src="/static/match.js"></script>
+</body>
+</html>

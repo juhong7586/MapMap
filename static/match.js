@@ -231,6 +231,7 @@ function drawLines() {
 
 function clearConnections() {
   connections = []; connCorrect = []; correctAll = false; drawLines();
+  if (mapBtn) mapBtn.style.display = 'none';
 }
 
 function checkConnections() {
@@ -254,6 +255,7 @@ function checkConnections() {
   } else {
     // success
     correctAll = true;
+    if (mapBtn) mapBtn.style.display = 'inline-block';
     alert('All correct! You can go to the map.');
   }
 }
@@ -269,6 +271,7 @@ mapBtn.addEventListener('click', ()=>{
 
 // initialize
 initMatch();
+if (mapBtn) mapBtn.style.display = 'none';
 // small timeout to ensure layout done
 setTimeout(()=>{ fitCanvas(); drawLines(); }, 50);
 

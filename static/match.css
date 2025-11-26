@@ -88,6 +88,9 @@ h1 {
     color: #ffffff;
 }
 
+/* hide Go to Map until the match is completed */
+#mapBtn { display: none; }
+
 canvas.lines {
     position: absolute;
     left: 0;

@@ -179,10 +179,11 @@ async function uploadImageToBackend(base64Image, opts = { skipPreCrop: false }) 
                         await new Promise((resolve) => { tmpImg.onload = resolve; tmpImg.src = currentImage; });
                         const w = tmpImg.naturalWidth || tmpImg.width; const h = tmpImg.naturalHeight || tmpImg.height;
                         backgroundPolygon = { points: [[0,0],[w,0],[w,h],[0,h]], area: w*h };
-                        // use polygons returned from server (they are in cropped image coords)
-                        currentPolygons = classifyPolygons(cropData.polygons || []);
+                        // Use the cropped image but do not display detected inner objects.
+                        // Keep currentPolygons empty so nothing is overlaid.
+                        currentPolygons = [];
                         uploadStatus.className = 'status success';
-                        uploadStatus.textContent = `✓ Cropped and detected ${ (cropData.polygons||[]).length } polygons`;
+                        uploadStatus.textContent = `✓ Cropped (inner detections hidden)`;
                         const cropBtn = document.getElementById('cropBtn'); if (cropBtn) cropBtn.disabled = false;
                         drawPolygons();
                         displayPolygonList();
@@ -577,6 +578,22 @@ window.dumpComponentRegistry = function() { console.log(componentRegistry); };
 enableRegistrationUI();
 
 window.addEventListener('resize', updateFrameGuide);
+// expose certain helpers used by inline handlers in the HTML
+window.switchTab = switchTab;
+
+// wire the crop button to open the map editor page with the last cropped image
+const cropBtn = document.getElementById('cropBtn');
+if (cropBtn) {
+    cropBtn.addEventListener('click', () => {
+        if (currentImage) {
+            try { localStorage.setItem('mapmap_last_cropped', currentImage); } catch (e) {}
+            window.location.href = '/make_map.html';
+        } else {
+            // no image available
+            alert('No cropped image available. Please crop an image first.');
+        }
+    });
+}
 
 // Intro overlay handling
 const introOverlay = document.getElementById('introOverlay');

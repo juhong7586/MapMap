@@ -282,3 +282,16 @@ button {
 .tab-content.active {
     display: block;
 }
+
+/* Styles for the Map Maker page (`make_map.html`) */
+.toolbar{padding:12px;background:#f6f6f8;border-bottom:1px solid #e6e6ea}
+.canvas-wrap{display:flex;align-items:flex-start;gap:12px;padding:12px}
+canvas#mapCanvas{background:#222;max-width:100%;height:auto;border:1px solid #ccc}
+.sidebar{width:260px}
+.marker-item{padding:6px;border-bottom:1px solid #eee}
+.muted{color:#666}
+.btn{display:inline-block;padding:8px 12px;border-radius:6px;background:#2b6cb0;color:#fff;text-decoration:none}
+@media (max-width: 800px){
+    .canvas-wrap{flex-direction:column}
+    .sidebar{width:100%}
+}

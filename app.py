@@ -276,5 +276,13 @@ def serve_map_html():
         return jsonify({"error": "map.html not found"}), 404
 
 
+@app.route('/make_map.html', methods=['GET'])
+def serve_make_map():
+    try:
+        return send_from_directory(app.root_path, 'make_map.html')
+    except Exception:
+        return jsonify({"error": "make_map.html not found"}), 404
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

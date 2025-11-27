@@ -109,7 +109,7 @@ function detectBlackSquare() {
         frameGuide.classList.remove('valid');
         captureBtn.disabled = true;
         cameraStatus.className = 'status warning';
-        cameraStatus.textContent = `Black area: ${Math.round(blackPercentage)}% - Need ~80%`;
+        cameraStatus.textContent = `Black area: ${Math.round(blackPercentage)}% - Show black square.`;
     }
 }
 
@@ -158,7 +158,7 @@ async function uploadImageToBackend(base64Image) {
             // classify and filter polygons: remove the largest (background map)
             currentPolygons = classifyPolygons(data.polygons || []);
              
-            console.log('Detected polygons:', backgroundPolygon, currentPolygons    );
+            console.log('Detected polygons:', backgroundPolygon, currentPolygons);
 
             uploadStatus.className = 'status success';
             uploadStatus.textContent = `✓ ${data.message}`;
@@ -179,6 +179,81 @@ async function uploadImageToBackend(base64Image) {
         console.error('Error:', error);
     }
 }
+
+
+
+// Helpers to transform and mask a single polygon so it fills most of the canvas
+function computePolygonTransform(polygon, margin = 0.92) {
+    const pts = polygon.points || [];
+    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    pts.forEach(([x,y])=>{ if (x<minX) minX=x; if (y<minY) minY=y; if (x>maxX) maxX=x; if (y>maxY) maxY=y; });
+    const bw = Math.max(1, maxX-minX);
+    const bh = Math.max(1, maxY-minY);
+    const sx = canvas.width / bw;
+    const sy = canvas.height / bh;
+    let scale = Math.max(sx, sy) * margin; // margin to keep some border
+    // ensure we don't scale to zero
+    if (!isFinite(scale) || scale <= 0) scale = Math.min(sx, sy) * margin;
+    const totalW = bw * scale;
+    const totalH = bh * scale;
+    const offsetX = (canvas.width - totalW) / 2;
+    const offsetY = (canvas.height - totalH) / 2;
+    return { minX, minY, scale, offsetX, offsetY, bw, bh };
+}
+
+function maskOutsidePolygon(polygon, transform) {
+    const { minX, minY, scale, offsetX, offsetY } = transform;
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.beginPath();
+    ctx.rect(0,0,canvas.width,canvas.height);
+    const pts = polygon.points || [];
+    if (pts.length) {
+        ctx.moveTo((pts[0][0]-minX)*scale + offsetX, (pts[0][1]-minY)*scale + offsetY);
+        for (let i=1;i<pts.length;i++) {
+            const p = pts[i]; ctx.lineTo((p[0]-minX)*scale + offsetX, (p[1]-minY)*scale + offsetY);
+        }
+        ctx.closePath();
+        ctx.fill('evenodd');
+    } else {
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+    }
+    ctx.restore();
+}
+
+function drawPolygonTransformed(polygon, transform, opts = {}) {
+    const { minX, minY, scale, offsetX, offsetY } = transform;
+    const pts = polygon.points || [];
+    if (!pts.length) return;
+    ctx.save();
+    ctx.beginPath();
+    pts.forEach((pt,i)=>{
+        const x = (pt[0]-minX)*scale + offsetX;
+        const y = (pt[1]-minY)*scale + offsetY;
+        if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.closePath();
+    if (opts.fill !== false) {
+        ctx.fillStyle = opts.fillStyle || '#e8f3e8';
+        ctx.fill();
+    }
+    if (opts.stroke) { ctx.lineWidth = opts.strokeWidth||3; ctx.strokeStyle = opts.strokeColor||'rgba(0,0,0,0.15)'; ctx.stroke(); }
+    ctx.restore();
+}
+
+function drawCornerGuides(polygon, transform) {
+    const { minX, minY, scale, offsetX, offsetY } = transform;
+    const pts = polygon.points || [];
+    if (!pts.length) return;
+    ctx.save(); ctx.strokeStyle = '#00FF00'; ctx.lineWidth = 4; ctx.lineCap='round';
+    pts.forEach(pt=>{
+        const x = (pt[0]-minX)*scale + offsetX; const y = (pt[1]-minY)*scale + offsetY;
+        const len = Math.max(12, Math.min(36, Math.min(canvas.width, canvas.height)*0.03));
+        ctx.beginPath(); ctx.moveTo(x-len, y); ctx.lineTo(x+len, y); ctx.moveTo(x, y-len); ctx.lineTo(x, y+len); ctx.stroke();
+    });
+    ctx.restore();
+}
+
 
 // Classify polygons and remove the largest one (assumed background map)
 function classifyPolygons(polygons) {
@@ -209,10 +284,18 @@ function classifyPolygons(polygons) {
         if (typeof p.vertices !== 'number') p.vertices = (p.points||[]).length;
     });
 
-    // remove largest polygon (assumed background)
-    let maxIdx = 0; let maxArea = -1;
-    polygons.forEach((p,i)=>{ if (p.area>maxArea){ maxArea = p.area; maxIdx = i; } });
-    const filtered = polygons.filter((_,i)=> i !== maxIdx);
+    // choose background polygon: prefer largest quadrilateral, otherwise overall largest
+    let maxIdx = -1; let maxArea = -1; let quadIdx = -1; let quadArea = -1;
+    polygons.forEach((p,i)=>{
+        const area = typeof p.area === 'number' ? p.area : 0;
+        if (area > maxArea) { maxArea = area; maxIdx = i; }
+        if (p.vertices === 4 && area > quadArea) { quadArea = area; quadIdx = i; }
+    });
+    const bgIdx = quadIdx >= 0 ? quadIdx : maxIdx;
+    if (bgIdx >= 0) backgroundPolygon = polygons[bgIdx];
+    // Filter out the chosen background and any polygon larger than the background
+    const bgArea = backgroundPolygon && typeof backgroundPolygon.area === 'number' ? backgroundPolygon.area : Infinity;
+    const filtered = polygons.filter((p, i) => i !== bgIdx && (typeof p.area === 'number' ? p.area <= bgArea : true));
 
     return filtered.map(p => {
         const pts = p.points || [];
@@ -252,13 +335,11 @@ function classifyPolygons(polygons) {
         let kind = 'Unknown';
 
         if (verts === 3) {
-            // triangle: check side equality
             const a = sides[0], b = sides[1], c = sides[2];
             if (approxEqual(a,b,0.15) && approxEqual(b,c,0.15)) kind = 'Equilateral triangle';
             else if (approxEqual(a,b,0.15) || approxEqual(b,c,0.15) || approxEqual(a,c,0.15)) kind = 'Isosceles triangle';
             else kind = 'Scalene triangle';
         } else if (verts === 4) {
-            // check for right angles and equal sides
             const rightCount = angles.filter(a=> Math.abs(a - Math.PI/2) < 0.35 ).length;
             const allSidesEqual = sides.every(s=> approxEqual(s, avgSide, 0.18));
             const oppEqual = approxEqual(sides[0], sides[2]) && approxEqual(sides[1], sides[3]);
@@ -267,44 +348,37 @@ function classifyPolygons(polygons) {
             else if (allSidesEqual) kind = 'Rhombus';
             else kind = 'Quadrilateral';
         } else if (verts <= 6) {
-            // check regularity: side variance small and angle variance small
-            const sideStd = Math.sqrt(sides.reduce((s,v)=>s + Math.pow(v-avgSide,2),0)/sides.length);
-            const avgAngle = angles.reduce((s,v)=>s+v,0)/angles.length;
-            const angleStd = Math.sqrt(angles.reduce((s,v)=>s + Math.pow(v-avgAngle,2),0)/angles.length);
+            const sideStd = Math.sqrt(sides.reduce((s,v)=>s + Math.pow(v-avgSide,2),0)/sides.length || 0);
+            const avgAngle = angles.reduce((s,v)=>s+v,0)/angles.length || 0;
+            const angleStd = Math.sqrt(angles.reduce((s,v)=>s + Math.pow(v-avgAngle,2),0)/angles.length || 0);
             if (sideStd/avgSide < 0.18 && angleStd < 0.6) kind = `${verts}-sided regular polygon`;
             else kind = `${verts}-sided polygon`;
         } else {
             kind = `Complex ${verts}-sided polygon`;
         }
 
-        // area hint
         if (p.area > 200000) kind = 'Very large area (airport/park)';
 
         return Object.assign({}, p, { kind, bbox: { x: minX, y: minY, w, h }, centroid });
     });
 }
 
-// Return the largest polygon by area (or null)
 function findLargestPolygon(polygons) {
     if (!polygons || polygons.length === 0) return null;
-    let maxArea = -1, maxPoly = null;
-    polygons.forEach(p => {
-        let area = (typeof p.area === 'number') ? p.area : null;
+    let maxIdx = -1; let maxArea = -1;
+    polygons.forEach((p,i)=>{
+        let area = typeof p.area === 'number' ? p.area : null;
         if (area === null) {
             try {
                 const pts = p.points || [];
                 let a = 0;
-                for (let i=0;i<pts.length;i++){
-                    const [x1,y1]=pts[i];
-                    const [x2,y2]=pts[(i+1)%pts.length];
-                    a += x1*y2 - x2*y1;
-                }
+                for (let j=0;j<pts.length;j++){ const [x1,y1]=pts[j]; const [x2,y2]=pts[(j+1)%pts.length]; a += x1*y2 - x2*y1; }
                 area = Math.abs(a)/2;
-            } catch (e) { area = 0; }
+            } catch(e){ area = 0; }
         }
-        if (area > maxArea) { maxArea = area; maxPoly = p; }
+        if (area > maxArea) { maxArea = area; maxIdx = i; }
     });
-    return maxPoly;
+    return maxIdx >= 0 ? (polygons[maxIdx] || null) : null;
 }
 
 // Return top-N largest polygons (largest first)
@@ -359,9 +433,30 @@ function fillCanvasWithPolygonGroup(group, opts = {}) {
     const offsetY = (canvas.height - totalH) / 2;
 
     ctx.save();
+
     group.forEach((p, idx) => {
         const pts = p.points || [];
         if (!pts.length) return;
+
+
+        if (idx === backgroundPolygon.idx){
+            ctx.beginPath();
+            pts.forEach((pt, i)=>{
+                const x = (pt[0] - minX) * scale + offsetX;
+                const y = (pt[1] - minY) * scale + offsetY;
+                if (i === 0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+            });
+            ctx.closePath();
+            ctx.fill();
+            if (opts.stroke) {
+                ctx.lineWidth = opts.strokeWidth || 2;
+                ctx.strokeStyle = opts.strokeColor || 'rgba(0,0,0,0.12)';
+                ctx.stroke();
+            }
+
+        }    
+
+
         const hue = (idx * 360 / group.length) % 360;
         const color = `hsl(${hue}, 60%, 70%)`;
         ctx.fillStyle = opts.bgColor || color;
@@ -393,38 +488,29 @@ function drawPolygons() {
         canvas.height = img.height; 
         ctx.drawImage(img, 0, 0);
         
-        // If we have a detected backgroundGroup (top-N), use it to fill the canvas
-        if (backgroundGroup && backgroundGroup.length > 0) {
-            ctx.clearRect(0,0,canvas.width,canvas.height);
-            fillCanvasWithPolygonGroup(backgroundGroup, { bgAlpha: 1.0, stroke: false });
-        }
-        // else if a single backgroundPolygon exists, expand it to fill the canvas
-        else if (backgroundPolygon && backgroundPolygon.points && backgroundPolygon.points.length) {
-            const ptsBg = backgroundPolygon.points;
-            let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-            ptsBg.forEach(([x,y])=>{ if (x<minX) minX=x; if (y<minY) minY=y; if (x>maxX) maxX=x; if (y>maxY) maxY=y; });
-            const bw = isFinite(maxX-minX)?(maxX-minX):1;
-            const bh = isFinite(maxY-minY)?(maxY-minY):1;
-            const sx = canvas.width / bw;
-            const sy = canvas.height / bh;
+    
+        console.log('Filling canvas with background polygon');
+        const ptsBg = backgroundPolygon.points;
+        let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+        ptsBg.forEach(([x,y])=>{ if (x<minX) minX=x; if (y<minY) minY=y; if (x>maxX) maxX=x; if (y>maxY) maxY=y; });
+        const bw = isFinite(maxX-minX)?(maxX-minX):1;
+        const bh = isFinite(maxY-minY)?(maxY-minY):1;
+        const sx = canvas.width / bw;
+        const sy = canvas.height / bh;
 
-            ctx.save();
-            ctx.beginPath();
-            ptsBg.forEach((p,i)=>{
-                const x = (p[0] - minX) * sx;
-                const y = (p[1] - minY) * sy;
-                if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-            });
-            ctx.closePath();
-            // fill with a light map color
-            ctx.fillStyle = '#e8f3e8';
-            ctx.fill();
-            ctx.restore();
-        } else {
-            // Fallback: fill entire canvas with black background when no background polygon
-            ctx.fillStyle = '#000000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-        }
+        ctx.save();
+        ctx.beginPath();
+        ptsBg.forEach((p,i)=>{
+            const x = (p[0] - minX) * sx;
+            const y = (p[1] - minY) * sy;
+            if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+        });
+        ctx.closePath();
+        // fill with a light map color
+        ctx.fillStyle = '#e8f3e8';
+        ctx.fill();
+        ctx.restore();
+     
         
         currentPolygons.forEach((polygon, index) => {
             const hue = (index * 360 / currentPolygons.length) % 360; 

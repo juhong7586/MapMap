@@ -25,6 +25,12 @@ let backgroundPolygon = null; // largest polygon (map) saved separately
 let backgroundGroup = null; // optional: top-N largest polygons to use as background
 let detectionInterval = null;
 let isBlackSquareDetected = false;
+// Tunable thresholds to reduce noise / false positives
+const POLYGON_MIN_AREA = 1500;    // ignore tiny polygons (pixels^2)
+const POLYGON_MAX_AREA = 100000; // ignore overly large polygons (pixels^2)
+const POLYGON_MIN_DIM = 18;       // min bbox width/height in pixels
+const RIGHT_ANGLE_TOL = 0.25;     // radians tolerance to consider ~90deg
+const SIDE_EQUAL_TOL = 0.18;      // relative tolerance for side equality
 
 // Tab switching
 function switchTab(tab, evt) {
@@ -220,185 +226,124 @@ async function uploadImageToBackend(base64Image, opts = { skipPreCrop: false }) 
 
 
 
-// Helpers to transform and mask a single polygon so it fills most of the canvas
-function computePolygonTransform(polygon, margin = 0.92) {
-    const pts = polygon.points || [];
-    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-    pts.forEach(([x,y])=>{ if (x<minX) minX=x; if (y<minY) minY=y; if (x>maxX) maxX=x; if (y>maxY) maxY=y; });
-    const bw = Math.max(1, maxX-minX);
-    const bh = Math.max(1, maxY-minY);
-    const sx = canvas.width / bw;
-    const sy = canvas.height / bh;
-    let scale = Math.max(sx, sy) * margin; // margin to keep some border
-    // ensure we don't scale to zero
-    if (!isFinite(scale) || scale <= 0) scale = Math.min(sx, sy) * margin;
-    const totalW = bw * scale;
-    const totalH = bh * scale;
-    const offsetX = (canvas.width - totalW) / 2;
-    const offsetY = (canvas.height - totalH) / 2;
-    return { minX, minY, scale, offsetX, offsetY, bw, bh };
-}
-
-function maskOutsidePolygon(polygon, transform) {
-    const { minX, minY, scale, offsetX, offsetY } = transform;
-    ctx.save();
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.beginPath();
-    ctx.rect(0,0,canvas.width,canvas.height);
-    const pts = polygon.points || [];
-    if (pts.length) {
-        ctx.moveTo((pts[0][0]-minX)*scale + offsetX, (pts[0][1]-minY)*scale + offsetY);
-        for (let i=1;i<pts.length;i++) {
-            const p = pts[i]; ctx.lineTo((p[0]-minX)*scale + offsetX, (p[1]-minY)*scale + offsetY);
-        }
-        ctx.closePath();
-        ctx.fill('evenodd');
-    } else {
-        ctx.fillRect(0,0,canvas.width,canvas.height);
-    }
-    ctx.restore();
-}
-
-function drawPolygonTransformed(polygon, transform, opts = {}) {
-    const { minX, minY, scale, offsetX, offsetY } = transform;
-    const pts = polygon.points || [];
-    if (!pts.length) return;
-    ctx.save();
-    ctx.beginPath();
-    pts.forEach((pt,i)=>{
-        const x = (pt[0]-minX)*scale + offsetX;
-        const y = (pt[1]-minY)*scale + offsetY;
-        if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-    });
-    ctx.closePath();
-    if (opts.fill !== false) {
-        ctx.fillStyle = opts.fillStyle || '#e8f3e8';
-        ctx.fill();
-    }
-    if (opts.stroke) { ctx.lineWidth = opts.strokeWidth||3; ctx.strokeStyle = opts.strokeColor||'rgba(0,0,0,0.15)'; ctx.stroke(); }
-    ctx.restore();
-}
-
-function drawCornerGuides(polygon, transform) {
-    const { minX, minY, scale, offsetX, offsetY } = transform;
-    const pts = polygon.points || [];
-    if (!pts.length) return;
-    ctx.save(); ctx.strokeStyle = '#00FF00'; ctx.lineWidth = 4; ctx.lineCap='round';
-    pts.forEach(pt=>{
-        const x = (pt[0]-minX)*scale + offsetX; const y = (pt[1]-minY)*scale + offsetY;
-        const len = Math.max(12, Math.min(36, Math.min(canvas.width, canvas.height)*0.03));
-        ctx.beginPath(); ctx.moveTo(x-len, y); ctx.lineTo(x+len, y); ctx.moveTo(x, y-len); ctx.lineTo(x, y+len); ctx.stroke();
-    });
-    ctx.restore();
-}
-
 
 // Classify polygons and remove the largest one (assumed background map)
 function classifyPolygons(polygons) {
-    if (!polygons || polygons.length === 0) return [];
+        if (!polygons || polygons.length === 0) return [];
 
-    // helpers
-    const dist = (a,b) => Math.hypot(a[0]-b[0], a[1]-b[1]);
-    const approxEqual = (a,b,tol=0.12) => {
-        if (b === 0) return Math.abs(a) < 1e-6;
-        return Math.abs(a-b)/Math.max(Math.abs(b),1) <= tol;
-    };
-    const dot = (ax,ay,bx,by) => ax*bx + ay*by;
+        // helpers
+        const dist = (a,b) => Math.hypot(a[0]-b[0], a[1]-b[1]);
+        const approxEqual = (a,b,tol=0.12) => {
+                if (b === 0) return Math.abs(a) < 1e-6;
+                return Math.abs(a-b)/Math.max(Math.abs(b),1) <= tol;
+        };
+        const dot = (ax,ay,bx,by) => ax*bx + ay*by;
 
-    // ensure area/vertices present
-    polygons.forEach(p => {
-        if (typeof p.area !== 'number') {
-            try {
-                const pts = p.points || [];
-                let area = 0;
-                for (let i=0;i<pts.length;i++){
-                    const [x1,y1]=pts[i];
-                    const [x2,y2]=pts[(i+1)%pts.length];
-                    area += x1*y2 - x2*y1;
+        // compute basic measurements for all polygons
+        polygons.forEach(p => {
+                // area
+                if (typeof p.area !== 'number') {
+                        try {
+                                const pts = p.points || [];
+                                let area = 0;
+                                for (let i=0;i<pts.length;i++){
+                                        const [x1,y1]=pts[i];
+                                        const [x2,y2]=pts[(i+1)%pts.length];
+                                        area += x1*y2 - x2*y1;
+                                }
+                                p.area = Math.abs(area)/2;
+                        } catch(e){ p.area = 0; }
                 }
-                p.area = Math.abs(area)/2;
-            } catch(e){ p.area = 0; }
-        }
-        if (typeof p.vertices !== 'number') p.vertices = (p.points||[]).length;
-    });
+                // vertices
+                p.vertices = (p.points||[]).length;
+                // bounding box
+                const pts = p.points || [];
+                let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+                pts.forEach(([x,y])=>{ if (x<minX) minX=x; if (y<minY) minY=y; if (x>maxX) maxX=x; if (y>maxY) maxY=y; });
+                p.bbox = { x: minX, y: minY, w: isFinite(maxX-minX)?(maxX-minX):0, h: isFinite(maxY-minY)?(maxY-minY):0 };
+                // centroid (simple average)
+                p.centroid = pts.length ? pts.reduce((acc,pt)=>[acc[0]+pt[0], acc[1]+pt[1]],[0,0]).map(v=>v/pts.length) : [p.bbox.x + p.bbox.w/2, p.bbox.y + p.bbox.h/2];
+        });
 
-    // choose background polygon: prefer largest quadrilateral, otherwise overall largest
-    let maxIdx = -1; let maxArea = -1; let quadIdx = -1; let quadArea = -1;
-    polygons.forEach((p,i)=>{
-        const area = typeof p.area === 'number' ? p.area : 0;
-        if (area > maxArea) { maxArea = area; maxIdx = i; }
-        if (p.vertices === 4 && area > quadArea) { quadArea = area; quadIdx = i; }
-    });
-    const bgIdx = quadIdx >= 0 ? quadIdx : maxIdx;
-    if (bgIdx >= 0) backgroundPolygon = polygons[bgIdx];
-    // Filter out the chosen background and any polygon larger than the background
-    const bgArea = backgroundPolygon && typeof backgroundPolygon.area === 'number' ? backgroundPolygon.area : Infinity;
-    const filtered = polygons.filter((p, i) => i !== bgIdx && (typeof p.area === 'number' ? p.area <= bgArea : true));
+        // pre-filter noisy/small polygons
+        const candidates = polygons.filter(p => {
+            if (typeof p.area !== 'number') return false;
+            if (p.area < POLYGON_MIN_AREA) return false;
+            if (p.area > POLYGON_MAX_AREA) return false;    
+            if (p.bbox.w < POLYGON_MIN_DIM || p.bbox.h < POLYGON_MIN_DIM) return false;
+            return true;
+        });
 
-    return filtered.map(p => {
-        const pts = p.points || [];
-        const verts = pts.length;
-        // bounding box
-        let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-        pts.forEach(([x,y])=>{ if (x<minX) minX=x; if (y<minY) minY=y; if (x>maxX) maxX=x; if (y>maxY) maxY=y; });
-        const w = isFinite(maxX-minX)?(maxX-minX):0;
-        const h = isFinite(maxY-minY)?(maxY-minY):0;
+        // choose background polygon from candidates (prefer largest quad), fallback to overall largest
+        let maxIdx = -1, maxArea = -1, quadIdx = -1, quadArea = -1;
+        (candidates.length ? candidates : polygons).forEach((p,i)=>{
+            const area = typeof p.area === 'number' ? p.area : 0;
+            if (area > maxArea) { maxArea = area; maxIdx = i; }
+            if (p.vertices === 4 && area > quadArea) { quadArea = area; quadIdx = i; }
+        });
+        const bgSource = candidates.length ? candidates : polygons;
+        const bgIdxRel = quadIdx >= 0 ? quadIdx : maxIdx;
+        const background = bgIdxRel >= 0 ? (bgSource[bgIdxRel] || null) : null;
+        if (background) backgroundPolygon = background;
 
-        // compute side lengths and edge vectors
-        const sides = [];
-        const edges = [];
-        for (let i=0;i<verts;i++){
-            const a = pts[i];
-            const b = pts[(i+1)%verts];
-            sides.push(dist(a,b));
-            edges.push([b[0]-a[0], b[1]-a[1]]);
-        }
-        const avgSide = sides.reduce((s,v)=>s+v,0)/Math.max(1,sides.length);
+        // determine background area for filtering returned list
+        const bgArea = background && typeof background.area === 'number' ? background.area : Infinity;
 
-        // compute angles between consecutive edges
-        const angles = [];
-        for (let i=0;i<edges.length;i++){
-            const [ax,ay]=edges[i];
-            const [bx,by]=edges[(i+1)%edges.length];
-            const dp = dot(ax,ay,bx,by);
-            const mag = Math.hypot(ax,ay)*Math.hypot(bx,by) || 1;
-            const cos = Math.max(-1, Math.min(1, dp/mag));
-            angles.push(Math.acos(cos));
-        }
+        // final filtered list: remove background and any polygon larger than background, and apply size filter again
+        const filtered = (polygons || []).filter(p => {
+            if (background && p === background) return false;
+            if (typeof p.area === 'number' && p.area > bgArea) return false;
+            if (typeof p.area !== 'number' || p.area < POLYGON_MIN_AREA) return false;
+            if (p.bbox.w < POLYGON_MIN_DIM || p.bbox.h < POLYGON_MIN_DIM) return false;
+            return true;
+        });
 
-        // centroid for label placement
-        const centroid = pts.length ? pts.reduce((acc,p)=>[acc[0]+p[0], acc[1]+p[1]],[0,0]).map(v=>v/pts.length) : [minX + w/2, minY + h/2];
-
-        // classification heuristics
-        let kind = 'Unknown';
-
-        if (verts === 3) {
-            const a = sides[0], b = sides[1], c = sides[2];
-            if (approxEqual(a,b,0.15) && approxEqual(b,c,0.15)) kind = 'Equilateral triangle';
-            else if (approxEqual(a,b,0.15) || approxEqual(b,c,0.15) || approxEqual(a,c,0.15)) kind = 'Isosceles triangle';
-            else kind = 'Scalene triangle';
-        } else if (verts === 4) {
-            const rightCount = angles.filter(a=> Math.abs(a - Math.PI/2) < 0.35 ).length;
-            const allSidesEqual = sides.every(s=> approxEqual(s, avgSide, 0.18));
-            const oppEqual = approxEqual(sides[0], sides[2]) && approxEqual(sides[1], sides[3]);
-            if (allSidesEqual && rightCount >= 3) kind = 'Square';
-            else if (oppEqual && rightCount >= 3) kind = 'Rectangle';
-            else if (allSidesEqual) kind = 'Rhombus';
-            else kind = 'Quadrilateral';
-        } else if (verts <= 6) {
-            const sideStd = Math.sqrt(sides.reduce((s,v)=>s + Math.pow(v-avgSide,2),0)/sides.length || 0);
-            const avgAngle = angles.reduce((s,v)=>s+v,0)/angles.length || 0;
-            const angleStd = Math.sqrt(angles.reduce((s,v)=>s + Math.pow(v-avgAngle,2),0)/angles.length || 0);
-            if (sideStd/avgSide < 0.18 && angleStd < 0.6) kind = `${verts}-sided regular polygon`;
-            else kind = `${verts}-sided polygon`;
-        } else {
-            kind = `Complex ${verts}-sided polygon`;
-        }
-
-        if (p.area > 200000) kind = 'Very large area (airport/park)';
-
-        return Object.assign({}, p, { kind, bbox: { x: minX, y: minY, w, h }, centroid });
-    });
+        // compute shape features and classify only for the filtered set
+        return filtered.map(p => {
+            const pts = p.points || [];
+            const verts = pts.length;
+            // sides/edges
+            const sides = []; const edges = [];
+            for (let i=0;i<verts;i++){
+                const a = pts[i], b = pts[(i+1)%verts];
+                sides.push(dist(a,b));
+                edges.push([b[0]-a[0], b[1]-a[1]]);
+            }
+            const avgSide = sides.reduce((s,v)=>s+v,0)/Math.max(1,sides.length);
+            const angles = [];
+            for (let i=0;i<edges.length;i++){
+                const [ax,ay]=edges[i]; const [bx,by]=edges[(i+1)%edges.length];
+                const dp = dot(ax,ay,bx,by); const mag = Math.hypot(ax,ay)*Math.hypot(bx,by) || 1;
+                const cos = Math.max(-1, Math.min(1, dp/mag)); angles.push(Math.acos(cos));
+            }
+            const centroid = p.centroid || [p.bbox.x + p.bbox.w/2, p.bbox.y + p.bbox.h/2];
+            // classify
+            let kind = 'Unknown';
+            if (verts === 3) {
+                const [a,b,c] = sides;
+                if (approxEqual(a,b,0.15) && approxEqual(b,c,0.15)) kind = 'Equilateral triangle';
+                else if (approxEqual(a,b,0.15) || approxEqual(b,c,0.15) || approxEqual(a,c,0.15)) kind = 'Isosceles triangle';
+                else kind = 'Scalene triangle';
+            } else if (verts === 4) {
+                const rightCount = angles.filter(a=> Math.abs(a - Math.PI/2) < RIGHT_ANGLE_TOL ).length;
+                const allSidesEqual = sides.every(s=> approxEqual(s, avgSide, SIDE_EQUAL_TOL));
+                const oppEqual = approxEqual(sides[0], sides[2], SIDE_EQUAL_TOL) && approxEqual(sides[1], sides[3], SIDE_EQUAL_TOL);
+                if (allSidesEqual && rightCount >= 3) kind = 'Square';
+                else if (oppEqual && rightCount >= 3) kind = 'Rectangle';
+                else if (allSidesEqual) kind = 'Rhombus';
+                else kind = 'Quadrilateral';
+            } else if (verts <= 6) {
+                const sideStd = Math.sqrt(sides.reduce((s,v)=>s + Math.pow(v-avgSide,2),0)/sides.length || 0);
+                const avgAngle = angles.reduce((s,v)=>s+v,0)/angles.length || 0;
+                const angleStd = Math.sqrt(angles.reduce((s,v)=>s + Math.pow(v-avgAngle,2),0)/angles.length || 0);
+                if (sideStd/avgSide < 0.18 && angleStd < 0.6) kind = `${verts}-sided regular polygon`;
+                else kind = `${verts}-sided polygon`;
+            } else {
+                kind = `Complex ${verts}-sided polygon`;
+            }
+            if (p.area > 200000) kind = 'Very large area (airport/park)';
+            return Object.assign({}, p, { kind, bbox: p.bbox, centroid });
+        });
 }
 
 function findLargestPolygon(polygons) {
@@ -442,81 +387,6 @@ function getNLargestPolygons(polygons, n = 1) {
     return copy.slice(0, Math.max(0, n));
 }
 
-// Draw a coup of polygons scaled so their union bounding box fills the canvas
-function fillCanvasWithPolygonGroup(group, opts = {}) {
-    if (!group || group.length === 0) return;
-    // compute union bbox
-    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-    group.forEach(p=>{
-        (p.points||[]).forEach(([x,y])=>{
-            if (x < minX) minX = x;
-            if (y < minY) minY = y;
-            if (x > maxX) maxX = x;
-            if (y > maxY) maxY = y;
-        });
-    });
-    if (!isFinite(minX)) return;
-    const bboxW = Math.max(1, maxX - minX);
-    const bboxH = Math.max(1, maxY - minY);
-
-    // choose scale to COVER canvas (fill). preserve aspect by using max scale.
-    const sx = canvas.width / bboxW;
-    const sy = canvas.height / bboxH;
-    const scale = Math.max(sx, sy);
-
-    // center the scaled union in canvas
-    const totalW = bboxW * scale;
-    const totalH = bboxH * scale;
-    const offsetX = (canvas.width - totalW) / 2;
-    const offsetY = (canvas.height - totalH) / 2;
-
-    ctx.save();
-
-    group.forEach((p, idx) => {
-        const pts = p.points || [];
-        if (!pts.length) return;
-
-
-        if (idx === backgroundPolygon.idx){
-            ctx.beginPath();
-            pts.forEach((pt, i)=>{
-                const x = (pt[0] - minX) * scale + offsetX;
-                const y = (pt[1] - minY) * scale + offsetY;
-                if (i === 0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-            });
-            ctx.closePath();
-            //ctx.fill();
-            if (opts.stroke) {
-                ctx.lineWidth = opts.strokeWidth || 2;
-                ctx.strokeStyle = opts.strokeColor || 'rgba(0,0,0,0.12)';
-                ctx.stroke();
-            }
-
-        }    
-
-
-        const hue = (idx * 360 / group.length) % 360;
-        const color = `hsl(${hue}, 60%, 70%)`;
-        ctx.fillStyle = opts.bgColor || color;
-        ctx.globalAlpha = typeof opts.bgAlpha === 'number' ? opts.bgAlpha : 1.0;
-
-        ctx.beginPath();
-        pts.forEach((pt, i)=>{
-            const x = (pt[0] - minX) * scale + offsetX;
-            const y = (pt[1] - minY) * scale + offsetY;
-            if (i === 0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-        });
-        ctx.closePath();
-        ctx.fill();
-        if (opts.stroke) {
-            ctx.lineWidth = opts.strokeWidth || 2;
-            ctx.strokeStyle = opts.strokeColor || 'rgba(0,0,0,0.12)';
-            ctx.stroke();
-        }
-    });
-    ctx.globalAlpha = 1;
-    ctx.restore();
-}
 
 function drawPolygons() {
     if (!currentImage) return;
@@ -544,9 +414,6 @@ function drawPolygons() {
             if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
         });
         ctx.closePath();
-        // fill with a light map color
-        ctx.fillStyle = '#e8f3e8';
-        ctx.fill();
         ctx.restore();
      
         
@@ -596,6 +463,118 @@ function displayPolygonList() {
         polygonList.appendChild(div);
     });
 }
+
+// -------------------------
+// Component registry & recognition
+// -------------------------
+const COMPONENT_REGISTRY_KEY = 'mapmap_component_registry';
+
+function loadComponentRegistry() {
+    try { return JSON.parse(localStorage.getItem(COMPONENT_REGISTRY_KEY) || '[]'); } catch (e) { return []; }
+}
+function saveComponentRegistry(reg) { try { localStorage.setItem(COMPONENT_REGISTRY_KEY, JSON.stringify(reg)); } catch (e) {} }
+let componentRegistry = loadComponentRegistry();
+
+function polygonFeatures(p) {
+    const pts = p.points || [];
+    const verts = pts.length || 0;
+    const area = typeof p.area === 'number' ? p.area : 0;
+    const bbox = p.bbox || { w:0, h:0 };
+    const aspect = bbox.w && bbox.h ? bbox.w / bbox.h : 1;
+    const sides = [];
+    for (let i=0;i<verts;i++){ const a=pts[i], b=pts[(i+1)%verts]; sides.push(Math.hypot(a[0]-b[0], a[1]-b[1])); }
+    const avgSide = sides.length ? sides.reduce((s,v)=>s+v,0)/sides.length : 0;
+    const sideStd = sides.length ? Math.sqrt(sides.reduce((s,v)=>s+Math.pow(v-avgSide,2),0)/sides.length) : 0;
+    return { area, aspect, verts, avgSide, sideStd, bboxW: bbox.w||0, bboxH: bbox.h||0 };
+}
+
+function normalizeFeatures(f) {
+    return [ Math.log10(Math.max(1,f.area))/6.0, Math.max(0,Math.min(5,f.aspect))/5.0, Math.min(12,f.verts)/12.0, Math.log10(Math.max(1,f.avgSide))/4.0, Math.min(1, f.sideStd/Math.max(1,f.avgSide)) ];
+}
+
+function featureDistance(aNorm, bNorm) { let s=0; for (let i=0;i<aNorm.length;i++){ const d=(aNorm[i]||0)-(bNorm[i]||0); s+=d*d; } return Math.sqrt(s); }
+
+function registerComponentExample(label, polygon) {
+    const f = polygonFeatures(polygon); const fnorm = normalizeFeatures(f);
+    let entry = componentRegistry.find(r => r.label === label);
+    if (!entry) { entry = { label, examples: [fnorm], proto: f, count: 1 }; componentRegistry.push(entry); }
+    else { entry.examples.push(fnorm); entry.count = (entry.count||0)+1; }
+    saveComponentRegistry(componentRegistry);
+}
+
+function recognizeComponent(polygon, maxDist = 0.6) {
+    if (!componentRegistry || componentRegistry.length === 0) return null;
+    const f = polygonFeatures(polygon); const fnorm = normalizeFeatures(f);
+    let best = null;
+    for (const entry of componentRegistry) {
+        let minD = Infinity;
+        for (const ex of entry.examples) { const d = featureDistance(fnorm, ex); if (d < minD) minD = d; }
+        if (best === null || minD < best.dist) best = { label: entry.label, dist: minD };
+    }
+    if (best && best.dist <= maxDist) return best; return null;
+}
+
+function enableRegistrationUI() {
+    // wire polygon list items for quick registration by clicking
+    polygonList.querySelectorAll('.polygon-item').forEach((div, idx) => {
+        div.style.cursor = 'pointer';
+        div.onclick = () => {
+            const polygon = currentPolygons[idx]; if (!polygon) return;
+            const existing = recognizeComponent(polygon);
+            const suggested = existing ? `${existing.label} (match ${existing.dist.toFixed(2)})` : '';
+            const label = prompt(`Register component name for polygon #${idx+1}:`, suggested) || null;
+            if (!label) return;
+            registerComponentExample(label, polygon);
+            polygon.kind = label;
+            displayPolygonList(); drawPolygons();
+        };
+    });
+}
+
+function annotateRecognizedComponents() {
+    currentPolygons.forEach(p => { const match = recognizeComponent(p); if (match) p.kind = `${match.label}`; });
+}
+
+// override displayPolygonList to annotate and enable registration UI after rendering
+const orig_displayPolygonList = displayPolygonList;
+displayPolygonList = function() {
+    orig_displayPolygonList();
+    annotateRecognizedComponents();
+    // update labels in the list
+    polygonList.querySelectorAll('.polygon-item').forEach((div, idx) => {
+        const p = currentPolygons[idx]; if (p && p.kind) { const em = div.querySelector('em'); if (em) em.textContent = p.kind; }
+    });
+    enableRegistrationUI();
+};
+
+// point-in-polygon (ray-casting)
+function pointInPoly(px, py, pts) {
+    let inside = false;
+    for (let i=0, j=pts.length-1; i<pts.length; j=i++){
+        const xi = pts[i][0], yi = pts[i][1]; const xj = pts[j][0], yj = pts[j][1];
+        const intersect = ((yi>py) !== (yj>py)) && (px < (xj - xi) * (py - yi) / (yj - yi + 1e-12) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
+// click canvas to label polygon
+canvas.addEventListener('click', (ev) => {
+    if (!currentPolygons || !currentPolygons.length) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = (ev.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (ev.clientY - rect.top) * (canvas.height / rect.height);
+    for (let i=0;i<currentPolygons.length;i++){
+        const p = currentPolygons[i]; if (p.points && pointInPoly(x,y,p.points)) {
+            const label = prompt(`Label polygon #${i+1} (leave empty to cancel):`, p.kind || ''); if (!label) return; registerComponentExample(label, p); p.kind = label; displayPolygonList(); drawPolygons(); return;
+        }
+    }
+});
+
+window.dumpComponentRegistry = function() { console.log(componentRegistry); };
+
+// ensure registration UI is enabled on initial load
+enableRegistrationUI();
 
 window.addEventListener('resize', updateFrameGuide);
 

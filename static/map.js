@@ -137,7 +137,7 @@ uploadArea && uploadArea.addEventListener('drop', (e) => { e.preventDefault(); u
 fileInput && fileInput.addEventListener('change', (e) => { if (e.target.files.length>0) handleFile(e.target.files[0]); });
 function handleFile(file) { const reader = new FileReader(); reader.onload = (e) => { currentImage = e.target.result; uploadImageToBackend(currentImage); }; reader.readAsDataURL(file); }
 
-async function uploadImageToBackend(base64Image) {
+async function uploadImageToBackend(base64Image, opts = { skipPreCrop: false }) {
     uploadStatus.className = 'status loading';
     uploadStatus.textContent = '⏳ Processing image...';
     polygonList.innerHTML = '';
@@ -151,18 +151,56 @@ async function uploadImageToBackend(base64Image) {
         if (data.success) {
             // find and save the largest polygon as the background map
             backgroundPolygon = findLargestPolygon(data.polygons || []);
-            // OPTIONAL: also keep the top-N largest polygons as a group to fill the canvas
-            // change `desiredN` to control how many large polygons compose the background
             const desiredN = 2;
             backgroundGroup = getNLargestPolygons(data.polygons || [], desiredN);
+
+            // If we found a background polygon and we haven't yet pre-cropped,
+            // request a server-side OpenCV crop+detect so the document fills the view,
+            // then use the returned cropped image and inner polygons.
+            if (!opts.skipPreCrop && backgroundPolygon && backgroundPolygon.points && backgroundPolygon.points.length >= 4) {
+                try {
+                    uploadStatus.textContent = '⏳ Cropping on server...';
+                    const cropResp = await fetch(`${API_URL}/crop-and-detect`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ image: base64Image, polygon: backgroundPolygon.points, normalized: false, detect_inner: true })
+                    });
+                    const cropData = await cropResp.json();
+                    if (cropData && cropData.success && cropData.cropped_image) {
+                        // Use the cropped image as the current image and the returned polygons
+                        currentImage = cropData.cropped_image;
+                        // set background polygon to full-rect of cropped image
+                        const tmpImg = new Image();
+                        await new Promise((resolve) => { tmpImg.onload = resolve; tmpImg.src = currentImage; });
+                        const w = tmpImg.naturalWidth || tmpImg.width; const h = tmpImg.naturalHeight || tmpImg.height;
+                        backgroundPolygon = { points: [[0,0],[w,0],[w,h],[0,h]], area: w*h };
+                        // use polygons returned from server (they are in cropped image coords)
+                        currentPolygons = classifyPolygons(cropData.polygons || []);
+                        uploadStatus.className = 'status success';
+                        uploadStatus.textContent = `✓ Cropped and detected ${ (cropData.polygons||[]).length } polygons`;
+                        const cropBtn = document.getElementById('cropBtn'); if (cropBtn) cropBtn.disabled = false;
+                        drawPolygons();
+                        displayPolygonList();
+                        return;
+                    } else {
+                        console.warn('Server crop failed', cropData);
+                        // fallthrough to use the original detection results
+                    }
+                } catch (e) {
+                    console.error('Server crop error', e);
+                    // fallthrough to continue with original detection
+                }
+            }
+
             // classify and filter polygons: remove the largest (background map)
             currentPolygons = classifyPolygons(data.polygons || []);
-             
+
             console.log('Detected polygons:', backgroundPolygon, currentPolygons);
 
             uploadStatus.className = 'status success';
             uploadStatus.textContent = `✓ ${data.message}`;
             cameraStatus.textContent = `✓ ${data.message}`;
+            // enable crop button if available
+            const cropBtn = document.getElementById('cropBtn'); if (cropBtn) cropBtn.disabled = false;
             drawPolygons();
             displayPolygonList();
         } else {
@@ -447,7 +485,7 @@ function fillCanvasWithPolygonGroup(group, opts = {}) {
                 if (i === 0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
             });
             ctx.closePath();
-            ctx.fill();
+            //ctx.fill();
             if (opts.stroke) {
                 ctx.lineWidth = opts.strokeWidth || 2;
                 ctx.strokeStyle = opts.strokeColor || 'rgba(0,0,0,0.12)';

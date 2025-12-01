@@ -3,13 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Match Words — Polygon Detection App</title>
+  <title>Match: City Mapper</title>
   <link rel="stylesheet" href="/static/styles.css">
   <link rel="stylesheet" href="/static/match.css">
 </head>
 <body>
   <main class="match-container">
     <h1>Match Words to Learn</h1>
+    <div class="info">Click a left item, then its match on the right. Click again to deselect.</div>
+
     <div class="match-area" id="matchArea">
       <div class="col left" id="leftCol"></div>
       <div class="col right" id="rightCol"></div>
@@ -22,8 +24,7 @@
       <button class="btn map" id="mapBtn">Go to Map</button>
     </div>
 
-    <div class="info">Click a left item, then its match on the right. Click again to deselect.</div>
-  </main>
+      </main>
 
   <div id="tryOverlay" style="display:none" class="overlay" role="dialog">
     <div class="modal">

@@ -10,24 +10,32 @@
 </head>
 <body>
   <div class="toolbar">
-    <button id="backBtn" class="btn" style="background:#97BBCA">← Back</button>
-    <button id="exportBtn" class="btn" style="margin-left:8px; background:#6592A6">Export Map (PNG)</button>
-    <button id="analyzeBtn" class="btn" style="margin-left:8px; background:#275D74">Analyze</button>
-    <span style="margin-left:12px" class="muted">Click on the image to add markers.</span>
+    <button id="backBtn" class="btn btn-make" style="background:#97BBCA">← Back</button>
+    <button id="exportBtn" class="btn btn-make" style="margin-left:8px; background:#6592A6">Export Map (PNG)</button>
+    <button id="analyzeBtn" class="btn btn-make" style="margin-left:8px; background:#275D74">Analyze</button>
+   
   </div>
-
-  <div class="canvas-wrap">
+ <div style="display: flex; flex-direction: row; align-items: flex-start; justify-content: center; gap: 16px; padding: 12px;">
+  <div class="canvas-wrap" style="display: flex; flex-direction: column; align-items: stretch; text-align: center; width: 50%;">
     <div style="flex:1">
       <canvas id="mapCanvas"></canvas>
     </div>
-    <div class="sidebar">
-      <h3>Markers</h3>
+    <div class="sidebar" style="width:100%;">
+       <div style="margin-left:12px; font-size: 1.2rem; margin-bottom: 1.2rem;">Click on the image to add markers.</div>
+
       <div id="markerList"></div>
-      <div style="margin-top:12px">
-        <button id="clearBtn" class="btn" style="background:#e53e3e">Clear Markers</button>
+      <div style="margin:12px">
+        <button id="clearBtn" class="btn sb-reset" style="background:#c85a5a; border-radius: 20px;">Clear Markers</button>
       </div>
     </div>
   </div>
+  <div style="width: 50%; background: rgba(240,240,240,0.2); padding: 20px; margin: 10px; height: fit-content;">
+    <div id="sentence-container" style="width:100%;"></div>
+  </div>
+</div>
+  <!-- DOM-based Sentence Builder (no p5 dependency) -->
+  <script src="/static/word-lists.js"></script>
+  <script src="/static/sentence-builder.js"></script>
 
   <script src="/static/make_map.js"></script>
 </body>

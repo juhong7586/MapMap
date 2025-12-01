@@ -17,6 +17,7 @@
 body {
     min-height: 100vh;
     padding: 20px;
+    background: radial-gradient(circle, #97BBCA 40%, #F2F2F0 80%);
 }
 
 .container {
@@ -29,7 +30,6 @@ body {
 }
 
 .header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     padding: 30px;
     text-align: center;
@@ -62,28 +62,9 @@ body {
 .section h2 {
     color: #333;
     font-size: 20px;
-    border-bottom: 2px solid #667eea;
     padding-bottom: 10px;
 }
 
-.upload-area {
-    border: 2px dashed #667eea;
-    border-radius: 12px;
-    padding: 40px 20px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.upload-area:hover {
-    background: #f0f4ff;
-    border-color: #764ba2;
-}
-
-.upload-area.dragover {
-    background: #e0e8ff;
-    border-color: #764ba2;
-}
 
 input[type="file"] {
     display: none;
@@ -100,7 +81,7 @@ button {
 }
 
 .btn-primary {
-    background: #667eea;
+    background: #41758C;
     color: white;
 }
 
@@ -149,18 +130,7 @@ button {
     background: white;
 }
 
-.info-box {
-    background: #f7fafc;
-    padding: 15px;
-    border-radius: 8px;
-    border-left: 4px solid #667eea;
-}
 
-.info-box h3 {
-    color: #667eea;
-    margin-bottom: 8px;
-    font-size: 14px;
-}
 
 .polygon-list {
     max-height: 400px;
@@ -196,24 +166,10 @@ button {
     border-radius: 12px;
     overflow: hidden;
 }
-
-#video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.frame-guide {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    border: 3px solid rgba(255, 0, 0, 0.7);
-    pointer-events: none;
-}
-
-.frame-guide.valid {
-    border-color: rgba(72, 187, 120, 0.7);
+@media (max-width: 768px) {
+    .content {
+        grid-template-columns: 1fr;
+    }
 }
 
 .btn-primary:disabled {
@@ -261,35 +217,7 @@ button {
     flex-wrap: wrap;
 }
 
-.tab-buttons {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-}
 
-.tab-btn {
-    padding: 10px 20px;
-    background: #e2e8f0;
-    border: 2px solid transparent;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.3s ease;
-}
-
-.tab-btn.active {
-    background: #667eea;
-    color: white;
-    border-color: #667eea;
-}
-
-.tab-content {
-    display: none;
-}
-
-.tab-content.active {
-    display: block;
-}
 
 /* Styles for the Map Maker page (`make_map.html`) */
 .toolbar{padding:12px;background:#f6f6f8;border-bottom:1px solid #e6e6ea}
@@ -298,7 +226,7 @@ canvas#mapCanvas{background:#222;max-width:100%;height:auto;border:1px solid #cc
 .sidebar{width:260px}
 .marker-item{padding:6px;border-bottom:1px solid #eee}
 .muted{color:#666}
-.btn{display:inline-block;padding:8px 12px;border-radius:6px;background:#2b6cb0;color:#fff;text-decoration:none}
+.btn{display:inline-block;padding:8px 12px;border-radius:6px;background:#41758C;color:#fff;text-decoration:none}
 @media (max-width: 800px){
     .canvas-wrap{flex-direction:column}
     .sidebar{width:100%}
@@ -314,3 +242,54 @@ canvas#mapCanvas{background:#222;max-width:100%;height:auto;border:1px solid #cc
 .marker-item .swatch-small { display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:8px; vertical-align:middle; }
 .marker-item { display:flex; align-items:center; justify-content:space-between; }
 .marker-item .meta { flex:1; }
+
+.intro-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+}
+
+.intro-box {
+    background: rgba(255, 255, 255, 0);
+    padding: 28px;
+    border-radius: 12px;
+    width: 40vw;
+    max-width: 90%;
+    text-align: center;
+}
+
+.intro-box h1 {
+    margin-bottom: 14px;
+    font-size: 3rem;
+    color: white;
+}
+
+.intro-input {
+    width: 35vw;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 12px;
+    text-align: center;
+    font-size: 1.4rem;
+}
+
+.start-btn {
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+    color: white;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    width: 35vw;
+    height: 10vh;
+    font-size: 2rem;
+}
+
+.start-btn:disabled {
+    background: #cbd5e0;
+    cursor: not-allowed;
+}

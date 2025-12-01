@@ -5,59 +5,55 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Polygon Detection App</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="/static/map.css">
 </head>
 <body>
     <div id="introOverlay" class="intro-overlay">
-        <div class="intro-box">
-            <h1>Polygon Detection App</h1>           
+        <div class="intro-box" style="padding: 0rem; margin-left: 0rem;">
+            <h1>Make Your Map</h1>           
         </div>
     </div>
-    <div class="container">
-        <div class="header">
-            <h1>🎨 Polygon Detection App</h1>
-            <div id="userGreeting" class="user-greeting" aria-live="polite"></div>
-            <p>Capture a photo using your camera or upload an image to detect polygons</p>
-        </div>
-        
+    <div class="container" style="box-shadow: #FFF;">
         <div class="content">
             <div class="section">
-                <h2>Make Your Own Map</h2>
+                <h2 class="h2-map">Take Photos</h2>
 
-                <div class="tab-buttons">
-                    <button class="tab-btn active" onclick="switchTab('camera')">📷 Camera</button>
-                    <button class="tab-btn" onclick="switchTab('upload')">📁 Upload</button>
-                    <button class="btn-secondary" id="cropBtn" disabled>Crop background</button>
-                </div>
+                
+                    <div class="tab-buttons">
+                        <button class="tab-btn tab-btn-camera active" data-tab="camera" onclick="switchTab('camera', this)">📷 Camera</button>
+                        <button class="tab-btn tab-btn-upload" data-tab="upload" onclick="switchTab('upload', this)">📁 Upload</button>
+                        <button class="btn-secondary" id="cropBtn" style="font-size: 1.1rem;" disabled>Crop background</button>
+                    </div>
 
                 <!-- Camera Tab -->
                 <div id="camera-tab" class="tab-content active">
-                    <div class="camera-container">
+                    <div class="camera-container" style="margin: 1rem 0;">
                         <video id="video" playsinline></video>
                         <div class="frame-guide" id="frameGuide"></div>
                     </div>
 
-                    <div class="controls">
-                        <button class="btn-primary" id="startCameraBtn">Start Camera</button>
-                        <button class="btn-secondary" id="captureBtn" disabled>Take Photo</button>
-                        <button class="btn-danger" id="stopCameraBtn" disabled>Stop Camera</button>
+                    <div class="controls" style="font-size: 1.1rem; margin-bottom: 1rem; text-align: center; gap: 1rem;">
+                        <button class="btn-primary" id="startCameraBtn" style="font-size: 1.1rem;">Start Camera</button>
+                        <button class="btn-secondary" id="captureBtn" disabled style="font-size: 1.1rem;">Take Photo</button>
+                        <button class="btn-danger" id="stopCameraBtn" disabled style="font-size: 1.1rem;">Stop Camera</button>
                     </div>
 
-                    <div id="cameraStatus" class="status"></div>
+                    <div id="cameraStatus" class="status" style="font-size: 1.1rem; margin-bottom: 1rem;"></div>
 
-                    <div class="info-box">
+                    <div class="info-box" style="font-weight: 200; font-size: 1rem;">
                         <h3>📋 Instructions</h3>
-                        <small>
+                        <p>
                             1. Click "Start Camera"<br>
                             2. Position the <strong>black square</strong> to fill ~80% of the frame<br>
                             3. The border will turn <span style="color: #48bb78;">green</span> when ready<br>
                             4. Click "Take Photo" to capture
-                        </small>
+                        </p>
                          
                     </div>
                 </div>
 
                 <!-- Upload Tab -->
-                <div id="upload-tab" class="tab-content">
+                <div id="upload-tab" class="tab-content active">
                     <div class="upload-area" id="uploadArea">
                         <div style="font-size: 40px; margin-bottom: 10px;">📸</div>
                         <p style="color: #666; margin-bottom: 10px;">Drag and drop your image here</p>
@@ -74,7 +70,7 @@
             </div>
             
             <div class="section">
-                <h2>Detected Polygons</h2>
+                <p class="h2-map" id="map-check">Check</p>
                 
                 <canvas id="canvas"></canvas>
 

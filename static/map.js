@@ -34,15 +34,37 @@ const RIGHT_ANGLE_TOL = 0.25;     // radians tolerance to consider ~90deg
 const SIDE_EQUAL_TOL = 0.18;      // relative tolerance for side equality
 
 // Tab switching
-function switchTab(tab, evt) {
+function switchTab(tab, btn) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-    document.getElementById(tab + '-tab').classList.add('active');
-    if (evt && evt.target) evt.target.classList.add('active');
+    const tabEl = document.getElementById(tab + '-tab');
+    if (tabEl) tabEl.classList.add('active');
+
+    // Prefer explicit button passed in (from inline `this`), otherwise find by data-tab
+    let toActivate = null;
+    if (btn && btn.classList) toActivate = btn;
+    else toActivate = document.querySelector(`.tab-btn[data-tab="${tab}"]`);
+    if (toActivate) toActivate.classList.add('active');
+
+    // hide the upload area when using the camera tab, show otherwise
+    try {
+        if (uploadArea) uploadArea.style.display = (tab === 'camera' ? 'none' : 'block');
+    } catch (e) {}
+
     if (tab === 'upload' && stream) {
         stopCamera();
     }
 }
+
+// Set visibility on initial load so the `uploadArea` matches the active tab
+try {
+    const activeBtn = document.querySelector('.tab-btn.active');
+    if (activeBtn) {
+        const initialTab = activeBtn.getAttribute('data-tab') || 'camera';
+        // call without re-adding event target when script first runs
+        switchTab(initialTab, activeBtn);
+    }
+} catch (e) {}
 
 // Camera functions
 startCameraBtn && startCameraBtn.addEventListener('click', startCamera);
@@ -186,10 +208,12 @@ async function uploadImageToBackend(base64Image, opts = { skipPreCrop: false }) 
                         uploadStatus.className = 'status success';
                         uploadStatus.textContent = `✓ Cropped (inner detections hidden)`;
                         cropBtn.disabled = false;
+                        document.getElementById('map-check').textContent = "Push Crop Background Button to proceed!";
                         drawPolygons();
                         displayPolygonList();
                         return;
                     } else {
+                        document.getElementById('map-check').textContent = "Take the photo again. Make sure to show the entire map.";
                         console.warn('Server crop failed', cropData);
                         // fallthrough to use the original detection results
                     }

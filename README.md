@@ -1,1 +1,3 @@
-poetry run python app.py
+npm run dev
+
+ source ./venv/bin/activate

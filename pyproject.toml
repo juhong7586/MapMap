@@ -6,7 +6,7 @@ authors = [
     {name = "juhong 7586",email = "juhong0422@gmail.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.12,<4.0"
+requires-python = ">=3.11,<4.0"
 dependencies = [
     "numpy (<2.3.0)",
     "opencv-python (>=4.12.0.88,<5.0.0.0)",
@@ -19,3 +19,6 @@ dependencies = [
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+package-mode = false

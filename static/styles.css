@@ -17,6 +17,7 @@
 body {
     min-height: 100vh;
     padding: 20px;
+    background: radial-gradient(circle, #97BBCA 40%, #F2F2F0 80%);
 }
 
 .container {
@@ -29,7 +30,6 @@ body {
 }
 
 .header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     padding: 30px;
     text-align: center;
@@ -100,7 +100,7 @@ button {
 }
 
 .btn-primary {
-    background: #667eea;
+    background: #41758C;
     color: white;
 }
 
@@ -298,7 +298,7 @@ canvas#mapCanvas{background:#222;max-width:100%;height:auto;border:1px solid #cc
 .sidebar{width:260px}
 .marker-item{padding:6px;border-bottom:1px solid #eee}
 .muted{color:#666}
-.btn{display:inline-block;padding:8px 12px;border-radius:6px;background:#2b6cb0;color:#fff;text-decoration:none}
+.btn{display:inline-block;padding:8px 12px;border-radius:6px;background:#41758C;color:#fff;text-decoration:none}
 @media (max-width: 800px){
     .canvas-wrap{flex-direction:column}
     .sidebar{width:100%}
@@ -314,3 +314,54 @@ canvas#mapCanvas{background:#222;max-width:100%;height:auto;border:1px solid #cc
 .marker-item .swatch-small { display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:8px; vertical-align:middle; }
 .marker-item { display:flex; align-items:center; justify-content:space-between; }
 .marker-item .meta { flex:1; }
+
+.intro-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+}
+
+.intro-box {
+    background: rgba(255, 255, 255, 0);
+    padding: 28px;
+    border-radius: 12px;
+    width: 40vw;
+    max-width: 90%;
+    text-align: center;
+}
+
+.intro-box h1 {
+    margin-bottom: 14px;
+    font-size: 3rem;
+    color: white;
+}
+
+.intro-input {
+    width: 35vw;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 12px;
+    text-align: center;
+    font-size: 1.4rem;
+}
+
+.start-btn {
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+    color: white;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    width: 35vw;
+    height: 10vh;
+    font-size: 2rem;
+}
+
+.start-btn:disabled {
+    background: #cbd5e0;
+    cursor: not-allowed;
+}

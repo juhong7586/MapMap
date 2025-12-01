@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Map Maker</title>
+  <link rel="stylesheet" href="/static/makemap.css">
+  <!-- Map Maker styles moved to /static/styles.css -->
+</head>
+<body>
+  <div class="toolbar">
+    <button id="backBtn" class="btn" style="background:#4a5568">← Back</button>
+    <button id="exportBtn" class="btn" style="margin-left:8px">Export Map (PNG)</button>
+    <span style="margin-left:12px" class="muted">Click on the image to add markers.</span>
+  </div>
+
+  <div class="canvas-wrap">
+    <div style="flex:1">
+      <canvas id="mapCanvas"></canvas>
+    </div>
+    <div class="sidebar">
+      <h3>Markers</h3>
+      <div id="markerList"></div>
+      <div style="margin-top:12px">
+        <button id="clearBtn" class="btn" style="background:#e53e3e">Clear Markers</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/make_map.js"></script>
+</body>
+</html>

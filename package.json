@@ -1,0 +1,23 @@
+{
+  "name": "mapmap",
+  "version": "1.0.0",
+  "description": "poetry run python app.py",
+  "main": "index.js",
+  "scripts": {
+    "dev": "poetry run python app.py",
+    "start": "poetry run python app.py",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/juhong7586/MapMap.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/juhong7586/MapMap/issues"
+  },
+  "homepage": "https://github.com/juhong7586/MapMap#readme"
+}

@@ -6,7 +6,7 @@
 
 body {
     background: linear-gradient(135deg, #F2F2F0 0%, #CBDFE8 100%);
-    min-height: 100vh;
+    min-height: 50vh;
     padding: 20px;
 }
 
@@ -291,6 +291,7 @@ canvas#mapCanvas {
     align-items: center;
     gap: 12px;
     padding: 8px 10px;
+    margin: 1rem 0;
     border-bottom: 1px solid #eee;
     background: transparent;
 }
@@ -350,7 +351,7 @@ canvas#mapCanvas {
 }
 
 #sentence-container .sb-instructions {
-    font-size: 13px;
+    font-size: 1rem;
     color: #444;
     margin-bottom: 12px;
 }

@@ -85,7 +85,7 @@ const API_URL = window.location.origin;
     markers.forEach((m, i) => {
       const x = m.x * (dispW / baseImage.naturalWidth);
       const y = m.y * (dispH / baseImage.naturalHeight);
-      ctx.beginPath(); ctx.arc(x, y, 16, 0, Math.PI*2); ctx.fillStyle = 'rgba(242,159,61,0.95)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, 16, 0, Math.PI*2); ctx.fillStyle = '#C85A5A'; ctx.fill();
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
       ctx.fillStyle = '#fff'; ctx.font = '1.3rem sans-serif'; ctx.fillText(String(i+1), x-6, y+6);
     });
@@ -97,15 +97,18 @@ const API_URL = window.location.origin;
     markers.forEach((m,i)=>{
       const div = document.createElement('div');
       div.className = 'marker-item';
-
       const info = document.createElement('span');
       info.className = 'marker-info';
-      info.textContent = `${i+1}. x:${Math.round(m.x)}, y:${Math.round(m.y)}`;
+      info.style.color = ''
+      info.style.fontSize = '1.5rem';
+      info.textContent = `${i+1}`;
+      //info.textContent = `${i+1}. x:${Math.round(m.x)}, y:${Math.round(m.y)}`;
 
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'remove-btn';
       btn.setAttribute('aria-label', `Remove marker ${i+1}`);
+      btn.style.color = '#9E2D2D';
       btn.textContent = 'Remove';
       btn.addEventListener('click', () => { markers.splice(i,1); draw(); });
 

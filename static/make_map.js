@@ -59,8 +59,8 @@ const API_URL = window.location.origin;
     dpr = window.devicePixelRatio || 1;
     // target display width = 50% of window width, but don't upscale beyond natural width
     const targetDisplayWidth = Math.round(window.innerWidth * 0.5);
-    const displayWidth = 800;
-    const displayHeight = 550;
+    const displayWidth = 600;
+    const displayHeight = 400;
 
     // set CSS size
     canvas.style.width = displayWidth + 'px';

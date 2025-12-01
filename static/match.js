@@ -14,27 +14,39 @@ class Word {
 }
 
 // Sample data: put your images under /static/images/ and update paths as needed
-const wordListDirection = [
-  new Word('right', '/static/images/right.png'),
-  new Word('left', '/static/images/left.png'),
-  new Word('forward', '/static/images/forward.png')
-];
+// Prefer shared `window.WordLists` (plain objects) if provided; otherwise fall back
+function makeWordList(arr){
+  if (!arr) return [];
+  return arr.map(o => new Word(o.word, o.img));
+}
 
-const wordListNavigation = [
-  new Word('go', '/static/images/go.png'),
-  new Word('turn', '/static/images/turn.png')
-];
+const wordListDirection = (window.WordLists && window.WordLists.direction)
+  ? makeWordList(window.WordLists.direction)
+  : [
+      new Word('right', '/static/images/right.png'),
+      new Word('left', '/static/images/left.png'),
+      new Word('forward', '/static/images/forward.png')
+    ];
 
-const wordListBuilding = [
-    new Word('school', '/static/images/school.png'),
-    new Word('theater', '/static/images/theater.png'),
-    new Word('river', '/static/images/river.png'),
-    new Word('park', '/static/images/park.png'),
-    new Word('airport', '/static/images/airport.png'),
-    new Word('bridge', '/static/images/bridge.png'),
-    new Word('post office', '/static/images/post_office.png'),
-    new Word('trail', '/static/images/trail.png')
-];
+const wordListNavigation = (window.WordLists && window.WordLists.navigation)
+  ? makeWordList(window.WordLists.navigation)
+  : [
+      new Word('go', '/static/images/go.png'),
+      new Word('turn', '/static/images/turn.png')
+    ];
+
+const wordListBuilding = (window.WordLists && window.WordLists.building)
+  ? makeWordList(window.WordLists.building)
+  : [
+      new Word('school', '/static/images/school.png'),
+      new Word('theater', '/static/images/theater.png'),
+      new Word('river', '/static/images/river.png'),
+      new Word('park', '/static/images/park.png'),
+      new Word('airport', '/static/images/airport.png'),
+      new Word('bridge', '/static/images/bridge.png'),
+      new Word('post office', '/static/images/post_office.png'),
+      new Word('trail', '/static/images/trail.png')
+    ];
 
 // rounds configuration: sequence of word lists and labels
 const rounds = [

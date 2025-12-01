@@ -5,10 +5,37 @@
   const backBtn = document.getElementById('backBtn');
   const exportBtn = document.getElementById('exportBtn');
   const clearBtn = document.getElementById('clearBtn');
+  const analyzeBtn = document.getElementById('analyzeBtn');
+const API_URL = window.location.origin;
 
   let baseImage = null; // Image object
   let dpr = window.devicePixelRatio || 1;
   const markers = [];
+
+  analyzeBtn.addEventListener('click', analyzePhoto);
+
+  async function analyzePhoto() {
+    if (!baseImage) return;
+    try {
+
+      console.log(baseImage.src);
+      const response = await fetch(API_URL + '/analyze', {
+        method: 'POST',
+        body: JSON.stringify({ image: baseImage.src }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const result = await response.json();
+      if (result.success) {
+        alert('Analysis complete: ' + result.message);
+      } else {
+        alert('Analysis failed: ' + result.error);
+      }
+    } catch (e) {
+      alert('Analysis error: ' + e.message);
+    }
+
+  }
+
 
   function loadCropped() {
     const data = localStorage.getItem('mapmap_last_cropped');
@@ -32,8 +59,8 @@
     dpr = window.devicePixelRatio || 1;
     // target display width = 50% of window width, but don't upscale beyond natural width
     const targetDisplayWidth = Math.round(window.innerWidth * 0.5);
-    const displayWidth = Math.min(baseImage.naturalWidth, targetDisplayWidth);
-    const displayHeight = Math.round(baseImage.naturalHeight * (displayWidth / baseImage.naturalWidth));
+    const displayWidth = 800;
+    const displayHeight = 550;
 
     // set CSS size
     canvas.style.width = displayWidth + 'px';
@@ -58,9 +85,9 @@
     markers.forEach((m, i) => {
       const x = m.x * (dispW / baseImage.naturalWidth);
       const y = m.y * (dispH / baseImage.naturalHeight);
-      ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI*2); ctx.fillStyle = 'rgba(220,38,38,0.95)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, 16, 0, Math.PI*2); ctx.fillStyle = 'rgba(242,159,61,0.95)'; ctx.fill();
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
-      ctx.fillStyle = '#fff'; ctx.font = '12px sans-serif'; ctx.fillText(String(i+1), x-4, y+4);
+      ctx.fillStyle = '#fff'; ctx.font = '1.3rem sans-serif'; ctx.fillText(String(i+1), x-6, y+6);
     });
     renderMarkerList();
   }
@@ -68,9 +95,21 @@
   function renderMarkerList() {
     markerList.innerHTML = '';
     markers.forEach((m,i)=>{
-      const div = document.createElement('div'); div.className='marker-item';
-      div.textContent = `${i+1}. x:${Math.round(m.x)}, y:${Math.round(m.y)}`;
-      const btn = document.createElement('button'); btn.textContent='Remove'; btn.style.float='right'; btn.onclick = ()=>{ markers.splice(i,1); draw(); };
+      const div = document.createElement('div');
+      div.className = 'marker-item';
+
+      const info = document.createElement('span');
+      info.className = 'marker-info';
+      info.textContent = `${i+1}. x:${Math.round(m.x)}, y:${Math.round(m.y)}`;
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'remove-btn';
+      btn.setAttribute('aria-label', `Remove marker ${i+1}`);
+      btn.textContent = 'Remove';
+      btn.addEventListener('click', () => { markers.splice(i,1); draw(); });
+
+      div.appendChild(info);
       div.appendChild(btn);
       markerList.appendChild(div);
     });

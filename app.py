@@ -11,6 +11,18 @@ app = Flask(__name__)
 # NOTE: This should be restricted or removed in production.
 CORS(app)
 
+@app.route('/analyze', methods=['POST'])
+def analyze_image():
+    try:
+        payload = request.get_json()
+        
+
+
+    except Exception as e:
+        return jsonify(success=False, error=str(e)), 500
+
+
+
 def detect_polygons(image_path):
     """
     Detect polygons from an image using OpenCV

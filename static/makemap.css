@@ -2,11 +2,11 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #F2F2F0 0%, #CBDFE8 100%);
     min-height: 100vh;
     padding: 20px;
 }
@@ -21,7 +21,6 @@ body {
 }
 
 .header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     padding: 30px;
     text-align: center;
@@ -288,7 +287,39 @@ button {
 .canvas-wrap{display:flex;align-items:flex-start;gap:12px;padding:12px}
 canvas#mapCanvas{background:#222;max-width:100%;height:auto;border:1px solid #ccc}
 .sidebar{width:260px}
-.marker-item{padding:6px;border-bottom:1px solid #eee}
+.marker-item{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 10px;
+    border-bottom: 1px solid #eee;
+    background: transparent;
+}
+
+.marker-item .marker-info {
+    color: #333;
+    font-size: 14px;
+}
+
+.marker-item .remove-btn {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent-dark);
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.marker-item .remove-btn:hover {
+    background: var(--accent);
+    color: #fff;
+    transform: translateY(-1px);
+}
+.marker-item .remove-btn:focus {
+    outline: 3px solid rgba(65,117,140,0.12);
+    outline-offset: 2px;
+}
 .muted{color:#666}
 .btn{display:inline-block;padding:8px 12px;border-radius:6px;background:#2b6cb0;color:#fff;text-decoration:none}
 @media (max-width: 800px){

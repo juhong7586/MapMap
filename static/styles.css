@@ -13,14 +13,8 @@
     font-display: swap;
 }
 
-/* Utility class to opt-in to the handwritten font */
-.handwritten {
-    font-family: 'SchoolSafeBoardMarker', 'NanumSquareNeo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     min-height: 100vh;
     padding: 20px;
 }

@@ -5,6 +5,7 @@
 const startCameraBtn = document.getElementById('startCameraBtn');
 const captureBtn = document.getElementById('captureBtn');
 const stopCameraBtn = document.getElementById('stopCameraBtn');
+const cropBtn = document.getElementById('cropBtn'); 
 const video = document.getElementById('video');
 const cameraStatus = document.getElementById('cameraStatus');
 const frameGuide = document.getElementById('frameGuide');
@@ -163,7 +164,7 @@ async function uploadImageToBackend(base64Image, opts = { skipPreCrop: false }) 
             // If we found a background polygon and we haven't yet pre-cropped,
             // request a server-side OpenCV crop+detect so the document fills the view,
             // then use the returned cropped image and inner polygons.
-            if (!opts.skipPreCrop && backgroundPolygon && backgroundPolygon.points && backgroundPolygon.points.length >= 4) {
+            if (!opts.skipPreCrop && backgroundPolygon && backgroundPolygon.points.length >= 4) {
                 try {
                     uploadStatus.textContent = '⏳ Cropping on server...';
                     const cropResp = await fetch(`${API_URL}/crop-and-detect`, {
@@ -184,7 +185,7 @@ async function uploadImageToBackend(base64Image, opts = { skipPreCrop: false }) 
                         currentPolygons = [];
                         uploadStatus.className = 'status success';
                         uploadStatus.textContent = `✓ Cropped (inner detections hidden)`;
-                        const cropBtn = document.getElementById('cropBtn'); if (cropBtn) cropBtn.disabled = false;
+                        cropBtn.disabled = false;
                         drawPolygons();
                         displayPolygonList();
                         return;
@@ -193,23 +194,15 @@ async function uploadImageToBackend(base64Image, opts = { skipPreCrop: false }) 
                         // fallthrough to use the original detection results
                     }
                 } catch (e) {
+                    cropBtn.disabled = true;
                     console.error('Server crop error', e);
+                    
                     // fallthrough to continue with original detection
                 }
             }
-
-            // classify and filter polygons: remove the largest (background map)
-            currentPolygons = classifyPolygons(data.polygons || []);
-
-            console.log('Detected polygons:', backgroundPolygon, currentPolygons);
-
             uploadStatus.className = 'status success';
             uploadStatus.textContent = `✓ ${data.message}`;
             cameraStatus.textContent = `✓ ${data.message}`;
-            // enable crop button if available
-            const cropBtn = document.getElementById('cropBtn'); if (cropBtn) cropBtn.disabled = false;
-            drawPolygons();
-            displayPolygonList();
         } else {
             uploadStatus.className = 'status error';
             uploadStatus.textContent = `✗ Error: ${data.error}`;
@@ -581,8 +574,7 @@ window.addEventListener('resize', updateFrameGuide);
 // expose certain helpers used by inline handlers in the HTML
 window.switchTab = switchTab;
 
-// wire the crop button to open the map editor page with the last cropped image
-const cropBtn = document.getElementById('cropBtn');
+
 if (cropBtn) {
     cropBtn.addEventListener('click', () => {
         if (currentImage) {

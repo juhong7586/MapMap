@@ -2,11 +2,19 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    
+    font-family: 'SchoolSafeBoardMarker';
 }
 
+/* Custom handwritten font */
+@font-face {
+    font-family: 'SchoolSafeBoardMarker';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2511-1@1.0/HakgyoansimBoadmarkerR.woff2') format('woff2');
+    font-weight: normal;
+    font-display: swap;
+}
+
+
 body {
-    background: linear-gradient(135deg, #F2F2F0 0%, #CBDFE8 100%);
     min-height: 100vh;
     padding: 20px;
 }
@@ -21,6 +29,7 @@ body {
 }
 
 .header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     padding: 30px;
     text-align: center;
@@ -287,42 +296,21 @@ button {
 .canvas-wrap{display:flex;align-items:flex-start;gap:12px;padding:12px}
 canvas#mapCanvas{background:#222;max-width:100%;height:auto;border:1px solid #ccc}
 .sidebar{width:260px}
-.marker-item{
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 10px;
-    border-bottom: 1px solid #eee;
-    background: transparent;
-}
-
-.marker-item .marker-info {
-    color: #333;
-    font-size: 14px;
-}
-
-.marker-item .remove-btn {
-    background: transparent;
-    border: 1px solid var(--accent);
-    color: var(--accent-dark);
-    padding: 6px 10px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-}
-.marker-item .remove-btn:hover {
-    background: var(--accent);
-    color: #fff;
-    transform: translateY(-1px);
-}
-.marker-item .remove-btn:focus {
-    outline: 3px solid rgba(65,117,140,0.12);
-    outline-offset: 2px;
-}
+.marker-item{padding:6px;border-bottom:1px solid #eee}
 .muted{color:#666}
 .btn{display:inline-block;padding:8px 12px;border-radius:6px;background:#2b6cb0;color:#fff;text-decoration:none}
 @media (max-width: 800px){
     .canvas-wrap{flex-direction:column}
     .sidebar{width:100%}
 }
+
+/* Legend swatches for Map Maker */
+.legend-item { display: inline-flex; align-items: center; font-weight: 600; color: #333; margin-right: 8px; }
+.swatch { display:inline-block; width:14px; height:14px; border-radius:4px; margin-right:6px; border:2px solid #fff; box-shadow:0 1px 2px rgba(0,0,0,0.12); }
+.swatch-start { background: rgba(72,187,120,0.95); }
+.swatch-end { background: rgba(220,38,38,0.95); }
+
+/* marker list small swatch */
+.marker-item .swatch-small { display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:8px; vertical-align:middle; }
+.marker-item { display:flex; align-items:center; justify-content:space-between; }
+.marker-item .meta { flex:1; }

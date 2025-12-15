@@ -1,3 +1,4 @@
+from urllib import response
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import cv2
@@ -5,6 +6,23 @@ import numpy as np
 import base64
 from io import BytesIO
 from PIL import Image
+import requests
+import tempfile
+from openai import OpenAI
+import os
+
+
+# How to get your Databricks token: https://docs.databricks.com/en/dev-tools/auth/pat.html
+# Prefer explicit DATABRICKS_TOKEN, then fallback to OPENAI_API_KEY for compatibility.
+DATABRICKS_TOKEN = os.environ.get('DATABRICKS_TOKEN') or os.environ.get('OPENAI_API_KEY')
+if not DATABRICKS_TOKEN:
+    raise SystemExit(
+        'Missing token: set `DATABRICKS_TOKEN` (or `OPENAI_API_KEY`) in your environment.\n'
+        'Example (zsh):\n'
+        '  export DATABRICKS_TOKEN="<your-token>"\n'
+        '  export OPENAI_API_KEY="$DATABRICKS_TOKEN"\n'
+        'Or source a .env loader such as python-dotenv.'
+    )
 
 app = Flask(__name__)
 # Development: make CORS permissive to avoid origin issues while testing locally.
@@ -15,11 +33,134 @@ CORS(app)
 def analyze_image():
     try:
         payload = request.get_json()
-        
+        client = OpenAI(
+            api_key=DATABRICKS_TOKEN,
+            base_url="https://dbc-06a3d50f-3a59.cloud.databricks.com/serving-endpoints"
+        )
+        # Build a text message for the model. If an image is provided, do some
+        # lightweight processing (detect polygons/points) and include a short
+        # textual summary so the model can reason about the image.
+        question = payload.get('question', "Explain the route to get from the points in numerical order."
+                    "you can only use following words: 'forward', 'left', 'right','go', 'turn', 'school', 'theater', 'river', 'park', 'bridge', 'airport', 'post office', 'trail', 'block', 'blocks', 'one','two', 'three', 'four', 'five', 'six', 'seven', 'at', 'the', 'to'. Do not use any other words. keep it short and concise."
+                    "Each sentence should be only within 5 words.")
+
+        # If the caller provided an image reference, support either:
+        #  - a data URL (base64) or
+        #  - an HTTP(S) URL (we'll fetch the image)
+        image_summary = ''
+        if payload and payload.get('image'):
+            try:
+                image_ref = payload.get('image')
+                img = None
+
+                # If caller passed an object like {"type":"image_url","image_url":{"url":...}}
+                # extract the nested URL value so we can handle it like the string cases.
+                if isinstance(image_ref, dict):
+                    nested = None
+                    # common shapes
+                    if image_ref.get('type') == 'image_url' and isinstance(image_ref.get('image_url'), dict):
+                        nested = image_ref['image_url'].get('url')
+                    if not nested:
+                        # fallback to common keys
+                        nested = image_ref.get('url') or (
+                            image_ref.get('image_url') and image_ref['image_url'].get('url')
+                        )
+                    image_ref = nested or ''
+
+                # Handle blob: URLs explicitly; these cannot be fetched server-side.
+                if isinstance(image_ref, str) and image_ref.startswith('blob:'):
+                    image_summary = (
+                        'Unable to fetch blob: URL on the server. '
+                        'Please send the image as a data URL (base64) or upload the file.'
+                    )
+                else:
+                    # Remote URL: fetch bytes
+                    if isinstance(image_ref, str) and (
+                        image_ref.startswith('http://') or image_ref.startswith('https://')
+                    ):
+                        resp = requests.get(image_ref, timeout=10)
+                        resp.raise_for_status()
+                        img_bytes = resp.content
+                    else:
+                        # Assume data URL or raw base64
+                        data_url = image_ref
+                        if isinstance(data_url, str) and data_url.startswith('data:'):
+                            data_url = data_url.split(',', 1)[1]
+                        img_bytes = base64.b64decode(data_url)
+
+                    # Try decoding in-memory first
+                    arr = np.frombuffer(img_bytes, dtype=np.uint8)
+                    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+
+                    # If in-memory decode fails, try writing to a temporary file
+                    if img is None:
+                        tmp_path = None
+                        try:
+                            with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tf:
+                                tf.write(img_bytes)
+                                tmp_path = tf.name
+                            img = cv2.imread(tmp_path)
+                        finally:
+                            if tmp_path:
+                                try:
+                                    os.remove(tmp_path)
+                                except Exception:
+                                    pass
+
+                    if img is not None:
+                        # run polygon detection and compute centroids
+                        polys = detect_polygons_from_cv_image(img)
+                        pts = []
+                        for p in polys:
+                            bbox = p.get('bbox')
+                            if bbox:
+                                cx = bbox['x'] + bbox['width']/2
+                                cy = bbox['y'] + bbox['height']/2
+                                pts.append((int(cx), int(cy)))
+                        if pts:
+                            parts = [f"p{idx}:{x},{y}" for idx,(x,y) in enumerate(pts, start=1)]
+                            image_summary = 'Detected points: ' + '; '.join(parts)
+                        else:
+                            image_summary = (
+                                'No points detected in image. '
+                                'Please provide an image with visible numbered points so I can '
+                                'create the route using only the allowed words.'
+                            )
+                    else:
+                        image_summary = 'Could not decode provided image.'
+            except Exception as ex:
+                image_summary = f'Image processing error: {str(ex)}'
+
+        # Log txhe concise summary (not the raw image array)
+        print(image_summary)
+        # Combine question and image summary into a single text content
+        combined = question
+        if image_summary:
+            combined = combined + '\n' + image_summary
+
+        messages = [
+            {"role": "user", "content": combined}
+        ]
+
+        response = client.chat.completions.create(
+            model="databricks-gemma-3-12b",
+            messages=messages,
+            max_tokens=5000
+        )
+
+        # extract text result defensively
+        try:
+            answer = response.choices[0].message.content
+        except Exception:
+            answer = str(response)
+
+        print(answer)
+        return jsonify(success=True, answer=answer), 200
+
 
 
     except Exception as e:
-        return jsonify(success=False, error=str(e)), 500
+        return jsonify(success=False, err=str(e), answer=response), 500
 
 
 

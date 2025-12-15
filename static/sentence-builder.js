@@ -10,9 +10,17 @@
   // Sentence Builder styles moved to `static/makemap.css`.
   // Ensure `make_map.html` includes that stylesheet so these classes are available.
 
-  // helper to get words
+  // color map for each dictionary category
+  const COLORS = {
+    direction: '#801515',    // light red
+    navigation: '#0D4D4D',   // light green
+    building: '#116611',     // light blue
+    other: '#AA6C39'         // light orange for extras
+  };
+
+  // helper to get words with their source category
   function getWordsToUse(){
-    try{ if (window.wordsToUse && Array.isArray(window.wordsToUse) && window.wordsToUse.length>0) return window.wordsToUse.slice(); }catch(e){}
+    try{ if (window.wordsToUse && Array.isArray(window.wordsToUse) && window.wordsToUse.length>0) return window.wordsToUse.map(w=>({text:w,color:COLORS.other})); }catch(e){}
     // prefer canonical shared WordLists if present
     try{
       if (window.WordLists && typeof window.WordLists === 'object'){
@@ -20,23 +28,29 @@
         // iterate lists in insertion order (direction, navigation, building expected)
         Object.keys(window.WordLists).forEach(k => {
           const list = window.WordLists[k];
+          const color = COLORS[k] || COLORS.other;
           if (!Array.isArray(list)) return;
           list.forEach(item => {
             if (!item) return;
-            if (typeof item === 'string') parts.push(item);
-            else if (typeof item === 'object' && 'word' in item) parts.push(String(item.word));
+            let text = null;
+            if (typeof item === 'string') text = item;
+            else if (typeof item === 'object' && 'word' in item) text = String(item.word);
+            if (text) parts.push({text, color, category: k});
           });
         });
-        // dedupe while preserving order
-        const seen = new Set();
+        // dedupe while preserving order and first color
+        const seen = new Map();
         const out = [];
         for (const w of parts){
-          const t = (w||'').trim();
+          const t = (w.text||'').trim();
           if (!t) continue;
-          if (!seen.has(t)) { seen.add(t); out.push(t); }
+          if (!seen.has(t)) { seen.set(t, w.color); out.push({text:t, color:w.color}); }
         }
-        seen.add('at', 'in', 'the', 'a', 'block', 'blocks', 'to', 'one', 'two', 'three', 'four', 'five', 'six', 'seven');
-        out.push('at','in','the','a','block','blocks','to','one','two','three','four','five','six','seven');
+        // add extra words in 'other' color
+        const extras = ['at','in','the','a','block','blocks','to','one','two','three','four','five','six','seven'];
+        extras.forEach(ex => {
+          if (!seen.has(ex)) out.push({text:ex, color:COLORS.other});
+        });
         if (out.length) return out;
       }
     }catch(e){}
@@ -55,11 +69,11 @@
   const resetBtn = document.createElement('button'); resetBtn.className='sb-reset'; resetBtn.textContent='Reset'; controls.appendChild(resetBtn);
 
   let words = getWordsToUse();
-  if (!words) words = ['doing','am','are','now','you'];
+  if (!words) words = [{text:'doing',color:COLORS.other},{text:'am',color:COLORS.other},{text:'are',color:COLORS.other},{text:'now',color:COLORS.other},{text:'you',color:COLORS.other}];
   const ROWS = 7;
   const COLS = 5;
 
-  // state: 2D slots array [row][col] (null or text)
+  // state: 2D slots array [row][col] (null or {text, color})
   const slots = Array.from({length: ROWS}, ()=> Array.from({length: COLS}, ()=> null));
 
   // render palette (palette items are static copies)
@@ -68,9 +82,11 @@
     words.forEach(w => {
       const el = document.createElement('div');
       el.className = 'sb-word';
-      el.textContent = w;
+      el.textContent = w.text;
+      el.style.backgroundColor = w.color;
+      el.style.color = 'white';
       el.draggable = false;
-      el.addEventListener('pointerdown', (ev)=> startDrag(ev, {text:w, from:'palette'}));
+      el.addEventListener('pointerdown', (ev)=> startDrag(ev, {text:w.text, color:w.color, from:'palette'}));
       paletteWrap.appendChild(el);
     });
   }
@@ -87,14 +103,17 @@
         slotEl.dataset.col = c;
         if (slots[r][c] !== null){
           slotEl.classList.add('filled');
-          slotEl.textContent = slots[r][c];
+          slotEl.textContent = slots[r][c].text;
+          slotEl.style.backgroundColor = slots[r][c].color;
+          slotEl.style.color = 'white';
           // size the slot to fit the word
-          adjustSlotSize(slotEl, slots[r][c]);
+          adjustSlotSize(slotEl, slots[r][c].text);
           // allow dragging from filled slot
-          slotEl.addEventListener('pointerdown', (ev)=> startDrag(ev, {text: slots[r][c], from:'slot', row:r, col:c}));
+          slotEl.addEventListener('pointerdown', (ev)=> startDrag(ev, {text: slots[r][c].text, color: slots[r][c].color, from:'slot', row:r, col:c}));
         } else {
           slotEl.textContent = '';
           slotEl.style.width = '80px';
+          slotEl.style.backgroundColor = '';
         }
         rowEl.appendChild(slotEl);
       }
@@ -111,12 +130,14 @@
 
   function startDrag(ev, data){
     ev.preventDefault();
-    dragData = data; // {text, from, slotIndex?}
+    dragData = data; // {text, color, from, row?, col?}
     dragEl = document.createElement('div');
     dragEl.className = 'sb-word dragging';
     dragEl.style.position = 'absolute';
     dragEl.style.pointerEvents = 'none';
     dragEl.textContent = data.text;
+    dragEl.style.backgroundColor = data.color;
+    dragEl.style.color = 'white';
     document.body.appendChild(dragEl);
     moveDragEl(ev.clientX, ev.clientY);
     window.addEventListener('pointermove', onPointerMove);
@@ -165,7 +186,7 @@
         const row = parseInt(r.el.dataset.row,10);
         const col = parseInt(r.el.dataset.col,10);
         if (!Number.isNaN(row) && !Number.isNaN(col)){
-          slots[row][col] = dragData.text;
+          slots[row][col] = {text: dragData.text, color: dragData.color};
           placed = true;
           break;
         }
@@ -174,7 +195,7 @@
 
     // if not placed and drag originated from a slot, restore original slot
     if (!placed && dragData.from === 'slot'){
-      if (typeof dragData.row === 'number' && typeof dragData.col === 'number') slots[dragData.row][dragData.col] = dragData.text;
+      if (typeof dragData.row === 'number' && typeof dragData.col === 'number') slots[dragData.row][dragData.col] = {text: dragData.text, color: dragData.color};
     }
 
     renderSlots();

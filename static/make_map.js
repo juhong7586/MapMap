@@ -17,8 +17,6 @@ const API_URL = window.location.origin;
   async function analyzePhoto() {
     if (!baseImage) return;
     try {
-
-      console.log(baseImage.src);
       const response = await fetch(API_URL + '/analyze', {
         method: 'POST',
         body: JSON.stringify({ image: baseImage.src }),
@@ -85,6 +83,32 @@ const API_URL = window.location.origin;
     markers.forEach((m, i) => {
       const x = m.x * (dispW / baseImage.naturalWidth);
       const y = m.y * (dispH / baseImage.naturalHeight);
+      // Draw a direction arrow for the first marker (random angle stored on marker)
+      if (i === 0) {
+        if (typeof m.angle !== 'number') {
+          const choices = [Math.PI/2, Math.PI, 3*Math.PI/2, 2*Math.PI];
+          m.angle = choices[Math.floor(Math.random() * choices.length)];
+        }
+        const len = 40; // arrow length in CSS pixels
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(m.angle);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(len, 0);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        // arrowhead
+        ctx.beginPath();
+        ctx.moveTo(len, 0);
+        ctx.lineTo(len - 8, -6);
+        ctx.lineTo(len - 8, 6);
+        ctx.closePath();
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+        ctx.restore();
+      }
       ctx.beginPath(); ctx.arc(x, y, 16, 0, Math.PI*2); ctx.fillStyle = '#C85A5A'; ctx.fill();
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
       ctx.fillStyle = '#fff'; ctx.font = '1.3rem sans-serif'; ctx.fillText(String(i+1), x-6, y+6);
@@ -139,6 +163,31 @@ const API_URL = window.location.origin;
     const octx = out.getContext('2d');
     octx.drawImage(baseImage, 0, 0, out.width, out.height);
     markers.forEach((m,i)=>{
+      // Draw arrow for first marker in exported image as well
+      if (i === 0) {
+        if (typeof m.angle !== 'number') {
+          const choices = [Math.PI/2, Math.PI, 3*Math.PI/2, 2*Math.PI];
+          m.angle = choices[Math.floor(Math.random() * choices.length)];
+        }
+        const len = Math.round(out.width * 0.06); // scale arrow length to image size
+        octx.save();
+        octx.translate(m.x, m.y);
+        octx.rotate(m.angle);
+        octx.beginPath();
+        octx.moveTo(0, 0);
+        octx.lineTo(len, 0);
+        octx.strokeStyle = '#fff';
+        octx.lineWidth = 6;
+        octx.stroke();
+        octx.beginPath();
+        octx.moveTo(len, 0);
+        octx.lineTo(len - 12, -9);
+        octx.lineTo(len - 12, 9);
+        octx.closePath();
+        octx.fillStyle = '#fff';
+        octx.fill();
+        octx.restore();
+      }
       octx.beginPath(); octx.arc(m.x, m.y, 12, 0, Math.PI*2); octx.fillStyle = 'rgba(220,38,38,0.95)'; octx.fill();
       octx.strokeStyle = '#fff'; octx.lineWidth = 4; octx.stroke();
       octx.fillStyle = '#fff'; octx.font = '28px sans-serif'; octx.fillText(String(i+1), m.x-8, m.y+10);

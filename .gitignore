@@ -4,3 +4,10 @@ venv
 test.py
 
 .databricks
+.env
+.DS_Store
+__pycache__/.env
+.env
+.env
+.env
+.env

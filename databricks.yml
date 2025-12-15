@@ -1,0 +1,19 @@
+# This is a Databricks asset bundle definition for MapMap.
+# The Databricks extension requires databricks.yml configuration file.
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+
+bundle:
+  name: MapMap
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://dbc-06a3d50f-3a59.cloud.databricks.com
+
+  ## Optionally, there could be 'staging' or 'prod' targets here.
+  #
+  # prod:
+  #   workspace:
+  #     host: https://dbc-06a3d50f-3a59.cloud.databricks.com

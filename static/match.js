@@ -140,6 +140,16 @@ function renderHeader() {
 
   const label = document.getElementById('roundLabel');
   if (label) label.textContent = rounds[currentRound].title;
+
+  // If current round has 3 stars (all correct), highlight nextBtn with orange border
+  const nextBtn = document.getElementById('nextRound');
+  if (nextBtn) {
+    if (starsPerRound[currentRound] === 3) {
+      nextBtn.style.border = '1rem solid orange';
+    } else {
+      nextBtn.style.border = '';
+    }
+  }
 }
 
 function changeRound(idx){

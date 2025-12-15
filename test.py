@@ -1,33 +1,25 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from PIL import Image
+from openai import OpenAI
+import os
 
-model = AutoModelForCausalLM.from_pretrained(
-    "vikhyatk/moondream2",
-    revision="2025-06-21",
-    trust_remote_code=True,
-    device_map={"": "cuda"}  # ...or 'mps', on Apple Silicon
+# How to get your Databricks token: https://docs.databricks.com/en/dev-tools/auth/pat.html
+DATABRICKS_TOKEN = os.environ.get('DATABRICKS_TOKEN')
+# Alternatively in a Databricks notebook you can use this:
+# DATABRICKS_TOKEN = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().get()
+
+client = OpenAI(
+    api_key=DATABRICKS_TOKEN,
+    base_url="https://dbc-06a3d50f-3a59.cloud.databricks.com/serving-endpoints"
 )
 
-# Captioning
-print("Short caption:")
-print(model.caption(image, length="short")["caption"])
+response = client.chat.completions.create(
+    model="databricks-gemma-3-12b",
+    messages=[
+        {
+            "role": "user",
+            "content": "adsf"
+        }
+    ],
+    max_tokens=5000
+)
 
-print("\nNormal caption:")
-for t in model.caption(image, length="normal", stream=True)["caption"]:
-    # Streaming generation example, supported for caption() and detect()
-    print(t, end="", flush=True)
-print(model.caption(image, length="normal"))
-
-# Visual Querying
-print("\nVisual query: 'How many people are in the image?'")
-print(model.query(image, "How many people are in the image?")["answer"])
-
-# Object Detection
-print("\nObject detection: 'face'")
-objects = model.detect(image, "face")["objects"]
-print(f"Found {len(objects)} face(s)")
-
-# Pointing
-print("\nPointing: 'person'")
-points = model.point(image, "person")["points"]
-print(f"Found {len(points)} person(s)")
+print(response.choices[0].message.content)
